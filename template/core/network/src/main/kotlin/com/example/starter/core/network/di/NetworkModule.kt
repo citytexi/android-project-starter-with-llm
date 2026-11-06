@@ -28,7 +28,10 @@ object NetworkModule {
             .Builder()
             .apply {
                 if (BuildConfig.DEBUG) {
-                    addInterceptor(HttpLoggingInterceptor().setLevel(HttpLoggingInterceptor.Level.BODY))
+                    val logging = HttpLoggingInterceptor().setLevel(HttpLoggingInterceptor.Level.BODY)
+                    logging.redactHeader("Authorization")
+                    logging.redactHeader("Cookie")
+                    addInterceptor(logging)
                 }
             }.build()
 

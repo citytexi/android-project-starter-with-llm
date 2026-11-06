@@ -134,6 +134,18 @@ class HelpersTest(unittest.TestCase):
             self.assertEqual(generate.find_leftovers(root), [])
 
 
+    def test_find_leftovers_reports_path_names(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            sub = root / "schemas" / "com.example.starter.core.database.StarterDatabase"
+            sub.mkdir(parents=True)
+            (sub / "1.json").write_text("{}", encoding="utf-8")
+            self.assertEqual(
+                generate.find_leftovers(root),
+                ["schemas/com.example.starter.core.database.StarterDatabase/1.json:0"],
+            )
+
+
 class SortImportsTest(unittest.TestCase):
     def test_sort_imports_moves_project_imports_into_lexicographic_position(self):
         src = (
@@ -201,6 +213,16 @@ class GenerateTest(unittest.TestCase):
         props = (self.out / "gradle.properties").read_text()
         self.assertIn("starter.minSdk=26", props)
         self.assertIn("starter.baseUrl=https://a.com/", props)
+
+    def test_generate_renames_dotted_package_dir_names(self):
+        schema = self.repo / "template/core/database/schemas/com.example.starter.core.database.StarterDatabase"
+        schema.mkdir(parents=True)
+        (schema / "1.json").write_text("{}", encoding="utf-8")
+        self.gen()
+        new = self.out / "core/database/schemas/io.github.club.devsample.core.database.DevsampleDatabase/1.json"
+        self.assertTrue(new.is_file())
+        self.assertEqual(list((self.out / "core/database/schemas").iterdir()), [new.parent])
+        self.assertEqual(generate.find_leftovers(self.out), [])
 
     def test_generate_sorts_imports_in_output(self):
         src = self.repo / "template/app/src/main/kotlin/com/example/starter/Imp.kt"

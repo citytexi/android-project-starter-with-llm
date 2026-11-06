@@ -78,6 +78,9 @@ def _iter_files(root: Path, skip: bool = False):
 def find_leftovers(root: Path) -> list[str]:
     found = []
     for p in _iter_files(root):
+        rel = p.relative_to(root)
+        if any(_LEFTOVER_RE.search(part) for part in rel.parts):
+            found.append(f"{rel.as_posix()}:0")
         if not _is_text(p):
             continue
         text = p.read_text(encoding="utf-8", errors="replace")
@@ -133,7 +136,7 @@ def _rename_package_dirs(root: Path, new_package: str, prefix: str) -> None:
             staging.rename(dest)
     # rename Starter* file and directory names, deepest first
     for p in sorted(root.rglob("*"), key=lambda x: len(x.parts), reverse=True):
-        new_name = _PREFIX_RE.sub(prefix, p.name)
+        new_name = _PREFIX_RE.sub(prefix, p.name.replace(OLD_PACKAGE, new_package))
         if new_name != p.name:
             p.rename(p.with_name(new_name))
 
