@@ -78,7 +78,7 @@ nav 파일 이름은 `StarterRoutes`/`StarterNavKeys`처럼 접두사를 쓴다.
 - `feature/<name>/.../navigation/<Name>Navigation.kt`에 `fun EntryProviderScope<NavKey>.<name>Entry() { entry<<Name>Key> { <Name>Route() } }`를 만든다.
 - `app/.../navigation/StarterNavHost.kt`의 `entryProvider { }` 블록에서 `<name>Entry()`를 호출한다.
 
-   - 시작 화면은 nav2는 `StarterNavHost`의 `startDestination = ...`, nav3는 `rememberNavBackStack(...)`에서 정한다.
+시작 화면은 nav2는 `StarterNavHost`의 `startDestination = ...`, nav3는 `rememberNavBackStack(...)`에서 정한다.
 5. 테스트를 쓴다(ViewModel 단위 테스트, 화면 스크린샷 테스트는 `SampleViewModelTest`, `SampleScreenScreenshotTest` 참고). `./gradlew verifyStarter`로 마무리한다.
 
 ## 5. 검증
