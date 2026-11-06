@@ -1,0 +1,23 @@
+# Gradle
+.gradle/
+.kotlin/
+build/
+
+# Local configuration (SDK path, signing keys)
+local.properties
+*.jks
+*.keystore
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# Android
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+output.json
+*.hprof

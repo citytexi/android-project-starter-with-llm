@@ -1,0 +1,22 @@
+# Built on top of the detekt defaults (buildUponDefaultConfig = true in starter.quality).
+# Only list overrides here.
+
+naming:
+  FunctionNaming:
+    # @Composable functions are PascalCase by convention.
+    ignoreAnnotated:
+      - 'Composable'
+  TopLevelPropertyNaming:
+    constantPattern: '[A-Z][A-Za-z0-9_]*'
+
+complexity:
+  LongParameterList:
+    # Composables take many optional parameters (modifier, colors, callbacks).
+    ignoreAnnotated:
+      - 'Composable'
+
+style:
+  UnusedPrivateFunction:
+    # @Preview functions are private and only used by tooling.
+    ignoreAnnotated:
+      - 'Preview'
