@@ -1,0 +1,61 @@
+name: build-release
+
+# 서명 시크릿(선택). 없으면 빌드는 경고와 함께 debug 키로 서명한다.
+#   RELEASE_KEYSTORE_BASE64    keystore 파일을 base64 로 인코딩한 값 (base64 -i release.jks)
+#   RELEASE_KEYSTORE_PASSWORD  STARTER_KEYSTORE_PASSWORD 로 전달된다
+#   RELEASE_KEY_ALIAS          STARTER_KEY_ALIAS 로 전달된다
+#   RELEASE_KEY_PASSWORD       STARTER_KEY_PASSWORD 로 전달된다
+# 키스토어 경로는 STARTER_KEYSTORE_PATH 로 넘긴다. 시크릿이 있을 때만 디코딩한 파일을 가리킨다.
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-release-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    env:
+      KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: changes
+        if: github.event_name == 'pull_request'
+        uses: ./.github/actions/detect-code-changes
+
+      - uses: ./.github/actions/setup-android-build
+        if: steps.changes.outputs.code != 'false'
+
+      # 포크 PR 에는 시크릿이 없어서 이 단계가 건너뛰어진다
+      - name: Decode keystore
+        id: keystore
+        if: steps.changes.outputs.code != 'false' && env.KEYSTORE_BASE64 != ''
+        run: |
+          path="$RUNNER_TEMP/release.jks"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$path"
+          echo "path=$path" >> "$GITHUB_OUTPUT"
+
+      - name: Assemble release
+        if: steps.changes.outputs.code != 'false'
+        env:
+          STARTER_KEYSTORE_PATH: ${{ steps.keystore.outputs.path }}
+          STARTER_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          STARTER_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          STARTER_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease
+
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        if: steps.changes.outputs.code != 'false'
+        with:
+          name: app-release-apk
+          path: app/build/outputs/apk/release/*.apk
+          retention-days: 7
+          if-no-files-found: error

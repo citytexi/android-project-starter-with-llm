@@ -1,0 +1,40 @@
+name: build-debug
+
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-debug-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-debug:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 필수 체크로 쓸 수 있게 paths-ignore 대신 스텝만 건너뛴다 (workflow_dispatch 는 항상 빌드한다)
+      - id: changes
+        if: github.event_name == 'pull_request'
+        uses: ./.github/actions/detect-code-changes
+
+      - uses: ./.github/actions/setup-android-build
+        if: steps.changes.outputs.code != 'false'
+
+      - name: Assemble debug
+        if: steps.changes.outputs.code != 'false'
+        run: ./gradlew assembleDebug
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        if: steps.changes.outputs.code != 'false'
+        with:
+          name: app-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 7
+          if-no-files-found: error

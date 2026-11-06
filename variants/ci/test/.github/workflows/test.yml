@@ -1,0 +1,51 @@
+name: test
+
+on:
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+concurrency:
+  group: test-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  unit-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # unit-test 는 필수 체크라 paths-ignore 대신 스텝만 건너뛴다
+      - id: changes
+        uses: ./.github/actions/detect-code-changes
+
+      - uses: ./.github/actions/setup-android-build
+        if: steps.changes.outputs.code == 'true'
+
+      # verifyStarter: 빌드, 유닛 테스트, 계측 테스트 컴파일(에뮬레이터 없음), detekt, ktlint, 스크린샷 기록을 묶은 집계 task다.
+      # --continue: 하나가 깨져도 나머지를 끝까지 돌려 리포트를 남긴다
+      - name: Verify
+        if: steps.changes.outputs.code == 'true'
+        run: ./gradlew verifyStarter --continue
+
+      # 실패해도 결과를 남긴다
+      - name: Publish test report
+        uses: dorny/test-reporter@v2
+        if: always() && steps.changes.outputs.code == 'true'
+        with:
+          name: Unit Test Results
+          path: '**/build/test-results/**/TEST-*.xml'
+          reporter: java-junit
+          fail-on-error: false
+
+      - name: Upload test reports
+        uses: actions/upload-artifact@v4
+        if: always() && steps.changes.outputs.code == 'true'
+        with:
+          name: test-reports
+          path: '**/build/reports/tests/**'
+          retention-days: 7
