@@ -25,6 +25,9 @@ _LEFTOVER_RE = re.compile(r"com\.example\.starter|\bStarter")
 _APP_NAME_RE = re.compile(r'(<string\s+name="app_name"[^>]*>)(.*?)(</string>)', re.DOTALL)
 
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
 class LeftoverTokensError(RuntimeError):
     def __init__(self, leftovers: list[str]):
         super().__init__("leftover template tokens: " + ", ".join(leftovers))
@@ -62,10 +65,14 @@ def _is_text(path: Path) -> bool:
     return path.suffix.lower() in TEXT_EXTENSIONS
 
 
-def _iter_files(root: Path):
+def _iter_files(root: Path, skip: bool = False):
+    """Yield files under root. skip=True drops build outputs (copy source only)."""
     for p in sorted(root.rglob("*")):
-        if p.is_file() and not any(part in SKIP_NAMES for part in p.relative_to(root).parts):
-            yield p
+        if not p.is_file():
+            continue
+        if skip and any(part in SKIP_NAMES for part in p.relative_to(root).parts):
+            continue
+        yield p
 
 
 def find_leftovers(root: Path) -> list[str]:
@@ -83,7 +90,7 @@ def find_leftovers(root: Path) -> list[str]:
 def _copy_tree(src: Path, dst: Path) -> None:
     if not src.is_dir():
         raise FileNotFoundError(f"missing directory: {src}")
-    for p in _iter_files(src):
+    for p in _iter_files(src, skip=True):
         target = dst / p.relative_to(src)
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(p, target)
@@ -91,6 +98,10 @@ def _copy_tree(src: Path, dst: Path) -> None:
 
 def _check_output_dir(out: Path, repo_root: Path, overwrite: bool) -> None:
     out_r, repo_r = out.resolve(), repo_root.resolve()
+    for protected in ("template", "variants", "scripts"):
+        prot = repo_r / protected
+        if out_r == prot or prot in out_r.parents:
+            raise ValueError(f"refusing to write inside {protected}/: {out}")
     if out_r == repo_r or out_r in repo_r.parents or out_r == Path(out_r.anchor) or out_r == Path.home():
         raise ValueError(f"refusing to use dangerous output directory: {out}")
     if out.exists() and (not out.is_dir() or any(out.iterdir())):
@@ -179,22 +190,26 @@ def generate(prd: Prd, repo_root: Path, overwrite: bool, git: bool = True) -> Pa
     return out
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None, repo_root: Path | None = None) -> int:
     ap = argparse.ArgumentParser(description="Generate an Android project from a PRD.")
     ap.add_argument("--prd", required=True, type=Path)
     ap.add_argument("--overwrite", action="store_true")
     args = ap.parse_args(argv)
     prd_path = args.prd.resolve()
-    prd = parse_prd(prd_path.read_text(encoding="utf-8"), prd_path.parent)
+    try:
+        prd = parse_prd(prd_path.read_text(encoding="utf-8"), prd_path.parent)
+    except (ValueError, OSError) as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
     errors = validate(prd)
     if errors:
         for e in errors:
             print(f"error: {e}", file=sys.stderr)
         return 2
-    repo_root = Path(__file__).resolve().parent.parent
+    repo_root = repo_root or REPO_ROOT
     try:
         out = generate(prd, repo_root, args.overwrite)
-    except FileExistsError as e:
+    except (FileExistsError, FileNotFoundError, ValueError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
     except LeftoverTokensError as e:

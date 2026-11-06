@@ -207,6 +207,61 @@ class GenerateTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             generate.generate(make_prd(output_dir=self.repo), self.repo, True, git=False)
 
+    def test_package_segment_named_like_skipped_dir(self):
+        self.gen(package_name="io.club.build.app")
+        app = self.out / "app/src/main/kotlin/io/club/build/app/AppApp.kt"
+        self.assertTrue(app.is_file())
+        self.assertIn("package io.club.build.app", app.read_text(encoding="utf-8"))
+        (app.parent / "Bad.kt").write_text("class StarterBad\n")
+        self.assertEqual(
+            generate.find_leftovers(self.out),
+            ["app/src/main/kotlin/io/club/build/app/Bad.kt:1"],
+        )
+
+    def test_refuses_output_inside_template_variants_scripts(self):
+        for d in ("template", "variants/navigation", "scripts"):
+            with self.subTest(d=d):
+                (self.repo / d).mkdir(parents=True, exist_ok=True)
+                with self.assertRaises(ValueError):
+                    generate.generate(
+                        make_prd(output_dir=self.repo / d / "o"), self.repo, True, git=False
+                    )
+        self.assertTrue((self.repo / "template/build.gradle.kts").exists())
+
+
+class CliTest(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.tmp = Path(self._tmp.name)
+        self.repo = self.tmp / "repo"
+        shutil.copytree(FIXTURE, self.repo)
+
+    def run_prd(self, text):
+        prd = self.tmp / "p.prd.md"
+        prd.write_text(text, encoding="utf-8")
+        import contextlib
+        import io
+        with contextlib.redirect_stderr(io.StringIO()), contextlib.redirect_stdout(io.StringIO()):
+            return generate.main(["--prd", str(prd), "--overwrite"], repo_root=self.repo)
+
+    BODY = (
+        "```properties\nappName = A\npackageName = io.club.app\n"
+        "baseUrl = https://a.com/\nnavigation = nav3\noutputDir = ../out\n%s```\n"
+    )
+
+    def test_exit_codes(self):
+        self.assertEqual(self.run_prd("no block"), 2)
+        self.assertEqual(self.run_prd(self.BODY % "minSdk = abc\n"), 2)
+        self.assertEqual(self.run_prd(self.BODY % "packageName = Bad\n"), 2)
+
+    def test_exit_3_on_leftovers(self):
+        # Real leftovers cannot survive replacement, so stub the scanner.
+        orig = generate.find_leftovers
+        generate.find_leftovers = lambda root: ["a.kt:1"]
+        self.addCleanup(setattr, generate, "find_leftovers", orig)
+        self.assertEqual(self.run_prd(self.BODY % ""), 3)
+
 
 if __name__ == "__main__":
     unittest.main()
