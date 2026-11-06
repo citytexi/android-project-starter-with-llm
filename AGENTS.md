@@ -26,13 +26,14 @@
 
 PRD 경로는 사용자가 알려준 파일이고, 없으면 `PRD.md`입니다. 파일이 없으면 `PRD.template.md`를 `PRD.md`로 복사할지 사용자에게 묻고, 값 채우는 것을 도와줍니다.
 
-PRD에서는 첫 번째 ```` ```properties ```` 블록만 읽습니다(`key = value`, `#`은 주석). 키는 `appName`, `packageName`, `minSdk`(23~36, 기본 26), `baseUrl`, `navigation`(`nav2`/`nav3`, 기본 `nav3`), `ci`, `outputDir`입니다. `PRD.template.md`에 키 설명이 있습니다.
+PRD에서는 첫 번째 ```` ```properties ```` 블록만 읽습니다(`key = value`, `#`으로 시작하는 줄은 주석). 줄 끝 `#` 주석은 지원하지 않습니다(값의 일부로 읽음). 키는 `appName`, `packageName`, `classPrefix`(선택), `minSdk`(23~36, 기본 26), `baseUrl`, `navigation`(`nav2`/`nav3`, 기본 `nav3`), `ci`, `outputDir`입니다. 이 밖의 키, 같은 키 두 번, `=`가 없는 줄은 스크립트가 줄 번호와 함께 거부합니다. `PRD.template.md`에 키 설명이 있습니다.
 
 - 필수 값이 비었거나 모호하면 추측하지 말고 사용자에게 물어봅니다.
 - 값 검증은 스크립트가 합니다. 직접 판단해서 고치지 말고 스크립트의 오류 메시지를 그대로 전달합니다.
-- `appName`은 필수입니다. `minSdk`는 23 이상 36 이하입니다. `baseUrl`은 호스트가 있는 `https://` 주소이고 `/`로 끝나야 하며 공백, 따옴표(`"`, `'`), 역슬래시(`\`)를 넣을 수 없습니다.
+- `appName`은 필수입니다. `minSdk`는 23 이상 36 이하입니다. `baseUrl`은 호스트가 있는 `https://` 주소이고 `/`로 끝나야 하며 ASCII 문자만 쓰고 공백, 따옴표(`"`, `'`), 역슬래시(`\`), `@`, `?`, `#`을 넣을 수 없습니다. 포트를 쓰면 올바른 숫자여야 합니다.
 - `ci`는 `build-debug`, `build-release`, `test`, `ui-diff`를 쉼표로 적습니다. 비우면 `.github/`가 생기지 않습니다.
-- `outputDir`을 생략하면 PRD 파일이 있는 디렉터리 기준 `../<패키지명 마지막 세그먼트>`에 생성합니다.
+- `outputDir`을 생략하면 PRD 파일이 있는 디렉터리 기준 `../<패키지명 마지막 세그먼트>`에 생성합니다. `~`는 홈 디렉터리로 바뀝니다.
+- `classPrefix`는 보통 비워 둡니다. 비우면 패키지명 마지막 세그먼트로 만듭니다(`club_moim` → `ClubMoim`). 스스로 채우지 않고, 3단계가 접두사 충돌(`class prefix '<Prefix>' clashes ...`)을 보고했을 때만 사용자에게 값을 물어 채웁니다.
 
 ### 2. `packageName`이 비어 있으면 사용자에게 고르게 한다
 
@@ -48,7 +49,8 @@ PRD에서는 첫 번째 ```` ```properties ```` 블록만 읽습니다(`key = va
    - Kotlin/Java 예약어(`in`, `is`, `fun`, `new`, `class`, `object` 등)를 세그먼트로 쓰지 않음
    - `com.example.*`로 시작하지 않음 (Play 스토어가 거부함)
    - 첫 세그먼트가 `java`, `javax`, `kotlin`, `android`, `androidx`가 아님 (플랫폼 패키지와 겹침)
-   - 마지막 세그먼트가 `starter`로 시작하지 않음 (`starter`, `starterkit`, `starter_app` 등). 클래스 접두사가 `Starter...`가 되어 템플릿 토큰으로 오인됩니다.
+   - 마지막 세그먼트가 `starter`로 시작하지 않음 (`starter`, `starterkit`, `starter_app` 등). 클래스 접두사가 `Starter...`가 되어 템플릿 토큰으로 오인됩니다. 사용자가 그런 이름을 원하면 `classPrefix`를 함께 정해야 합니다.
+   - 후보를 제안할 때 `classPrefix`는 함께 제안하지 않습니다. 접두사 충돌은 3단계에서 스크립트가 알려주고, 그때만 정합니다.
 3. 사용자가 후보 중 하나를 고르거나 직접 입력할 때까지 **기다립니다.** 답이 오기 전에는 3단계로 넘어가지 않습니다.
 4. 정해진 값을 PRD 파일의 `packageName = ` 뒤에 써 넣습니다. 그다음 3단계로 진행합니다.
 
@@ -81,7 +83,7 @@ python3 scripts/verify.py <outputDir>
 
 ### 5. 실패하면 생성물을 고치지 말고 멈춘다
 
-**종료 코드 3, 4, 5(그리고 아래 표에 없는 코드나 traceback)는 생성된 프로젝트를 수정하지 말고 멈춰서 사용자에게 보고합니다.** 종료 코드 2는 예외입니다. 사용자 입력(PRD 값, 이미 있는 출력 디렉터리)을 바로잡는 문제이므로, 사용자의 답에 따라 **PRD 파일만** 고치고 3단계를 다시 실행할 수 있습니다. 재시도로 덮어쓰거나, 코드를 패치해서 통과시키거나, 설정을 바꿔 우회하는 일을 하지 않습니다.
+**종료 코드 3, 4, 5(그리고 아래 표에 없는 코드나 traceback)는 생성된 프로젝트를 수정하지 말고 멈춰서 사용자에게 보고합니다.** 종료 코드 2는 예외입니다(`error: template changed: ...`만 빼고). 사용자 입력(PRD 값, 이미 있는 출력 디렉터리)을 바로잡는 문제이므로, 사용자의 답에 따라 **PRD 파일만** 고치고 3단계를 다시 실행할 수 있습니다. 재시도로 덮어쓰거나, 코드를 패치해서 통과시키거나, 설정을 바꿔 우회하는 일을 하지 않습니다.
 
 보고에 넣을 것은 다음과 같습니다.
 
@@ -122,7 +124,7 @@ python3 scripts/verify.py <outputDir>
 | `generate.py` | 2 | PRD 검증 실패 또는 입출력 오류 (stderr에 `error: ...`) | 메시지를 그대로 전달하고 어느 PRD 값을 고칠지 묻습니다. 사용자의 답으로 PRD만 고쳐 3단계를 다시 실행합니다. 출력 디렉터리가 비어 있지 않다는 오류면 다른 `outputDir`을 쓸지 묻고, `--overwrite`는 3단계의 확인 절차를 거친 경우에만 씁니다. 권한이나 디스크 오류면 원인을 안내합니다. |
 | `generate.py` | 3 | 치환 후 `com.example.starter`/`Starter`가 남음 | 템플릿 버그입니다. 남은 `경로:줄` 목록을 전달하고 멈춥니다. 중간까지 만들어진 출력 디렉터리가 디스크에 남아 있다고 알려줍니다(지우거나 고치지 않습니다). 수정은 이 레포의 `template/`, `variants/`, `scripts/`에서 합니다. |
 | `verify.py` | 0 | 구조 비교와 `verifyStarter` 통과 (`verify: ok`) | 6단계 요약으로 진행합니다. |
-| `verify.py` | 4 | 생성물 구조가 템플릿과 다름 (모듈 목록이나 `libs.versions.toml`) 또는 프로젝트 디렉터리 없음 | 결정성이 깨진 것입니다. 오류 메시지를 전달하고 멈춥니다. 디렉터리가 없다는 오류면 경로를 확인합니다. |
+| `verify.py` | 4 | 생성물 구조가 템플릿과 다름 (모듈 목록, `libs.versions.toml`, `gradlew`/`gradlew.bat` 없음) 또는 프로젝트 디렉터리 없음 | 결정성이 깨진 것입니다. 오류 메시지를 전달하고 멈춥니다. 디렉터리가 없다는 오류면 경로를 확인합니다. |
 | `verify.py` | 5 | Gradle 실패 또는 Gradle을 실행하지 못함 | 로그 마지막 80줄과 원인 추정을 전달합니다. JDK 21 또는 Android SDK 경로 문제면 환경 설정을 안내하고, 그 외에는 템플릿 버그로 보고 멈춥니다. |
 | 둘 다 | 그 외 (argparse의 1 등), traceback | 예상 밖 실패 | 멈추고 출력 전문과 원인 추정을 보고합니다. |
 
@@ -134,9 +136,18 @@ python3 scripts/verify.py <outputDir>
 - `error: packageName '<name>' needs at least 2 segments (e.g. com.club.app)`
 - `error: appName is required`
 - `error: packageName must not start with '<seg>' (reserved: android, androidx, java, javax, kotlin)`
-- `error: packageName last segment '<seg>' gives class prefix '<Prefix>', which must not start with 'Starter' (template token)`
+- `error: packageName last segment '<seg>' gives class prefix '<Prefix>', which must not start with 'Starter' (template token): change packageName or set classPrefix`
 - `error: minSdk must be between 23 and 36 (got <n>)`
-- `error: baseUrl must be an https:// URL with a host that ends with '/' and has no spaces, quotes or backslashes (Retrofit requirement)`
+- `error: baseUrl must be an https:// URL with a host (and a valid port, if any) that ends with '/' and has only ASCII characters, no spaces, quotes, backslashes, '@', '?' or '#' (Retrofit requirement)`
+- `error: PRD line <n>: unknown key '<key>' (allowed: appName, packageName, classPrefix, minSdk, baseUrl, navigation, ci, outputDir)`: 오타일 가능성이 큽니다(`appname` 등). 어느 키를 뜻했는지 사용자에게 묻습니다.
+- `error: PRD line <n>: duplicate key '<key>' (first set on line <m>)`
+- `error: PRD line <n>: expected 'key = value' or a '#' comment: '<줄>'`
+- `error: minSdk must be an integer: '<값>'`
+- `error: packageName segment '<seg>' is invalid: use lowercase letters, digits and '_', starting with a letter`
+- `error: classPrefix '<값>' is invalid: use PascalCase ASCII letters and digits, starting with an uppercase letter (e.g. Moim)`
+- `error: classPrefix '<값>' must not start with 'Starter' (template token)`
+- `error: class prefix '<Prefix>' clashes with imported names; set classPrefix in the PRD to another PascalCase name (e.g. the app name):` 뒤에 `<파일>: import <경로> clashes with <이름> (from Starter<X>)` 목록: 패키지명 마지막 세그먼트로 만든 접두사가 라이브러리 이름과 겹친 것입니다(예: `coroutine` → `CoroutineDispatcher`). 출력 디렉터리는 건드리지 않은 상태입니다. `appName`을 바탕으로 PascalCase 접두사 후보(예: `Moim`)를 제안하고, 사용자가 고른 값을 PRD의 `classPrefix = ` 뒤에 써 넣은 뒤 3단계를 다시 실행합니다.
+- `error: template changed: ...`: 사용자 입력 문제가 아니라 템플릿 버그입니다(`strings.xml`의 `app_name`이나 `gradle.properties`의 `starter.minSdk=`/`starter.baseUrl=` 줄이 정확히 하나가 아님). 종료 코드는 2지만 PRD를 고치지 말고 종료 코드 3처럼 멈춰서 보고합니다.
 - `error: output directory is not empty: <경로> (use --overwrite)`
 - `error: refusing to delete a directory not created by generate.py: <경로>`
 - `error: refusing to write inside the starter repo (only build/<dir> is allowed): <경로>`
