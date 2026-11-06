@@ -6,6 +6,8 @@ name: build-release
 #   RELEASE_KEY_ALIAS          STARTER_KEY_ALIAS 로 전달된다
 #   RELEASE_KEY_PASSWORD       STARTER_KEY_PASSWORD 로 전달된다
 # 키스토어 경로는 STARTER_KEYSTORE_PATH 로 넘긴다. 시크릿이 있을 때만 디코딩한 파일을 가리킨다.
+# 주의: 같은 저장소 PR 에서는 위 시크릿이 PR 이 바꾼 Gradle 코드에도 노출된다. 포크 PR 에는 시크릿이 없다.
+# 더 엄격하게 다루려면 트리거를 workflow_dispatch 만 남기도록 바꾼다.
 on:
   pull_request:
     branches: [ main ]
@@ -21,6 +23,7 @@ concurrency:
 jobs:
   build-release:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
     steps:
@@ -59,3 +62,9 @@ jobs:
           path: app/build/outputs/apk/release/*.apk
           retention-days: 7
           if-no-files-found: error
+
+      - name: Remove keystore
+        if: always() && steps.keystore.outputs.path != ''
+        env:
+          KEYSTORE_PATH: ${{ steps.keystore.outputs.path }}
+        run: rm -f "$KEYSTORE_PATH"

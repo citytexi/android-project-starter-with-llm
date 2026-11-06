@@ -16,6 +16,7 @@ on:
       - 'build.gradle.kts'
       - 'settings.gradle.kts'
       - 'gradle.properties'
+      - '.github/actions/setup-android-build/**'
       - '.github/workflows/ui-diff.yml'
       - '.github/scripts/ui_diff/**'
 
@@ -37,15 +38,21 @@ jobs:
       # base·head 렌더가 같은 merge 에서 나오도록 merge 커밋의 부모를 쓴다.
       - name: Resolve merge commit
         id: merge
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          # --exit-code 는 ref 가 없을 때만 2 를 낸다. 네트워크·인증 실패를 충돌로 오보하지 않게 나머지는 잡 실패로 둔다
+          # 404 는 merge ref 가 없을 때(충돌)만 나온다. 인증·네트워크 같은 다른 실패는 충돌로 오보하지 않고 잡 실패로 둔다
           rc=0
-          remote=$(git ls-remote --exit-code "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "refs/pull/$PR_NUMBER/merge") || rc=$?
-          case "$rc" in
-            0) merge_sha=$(printf '%s\n' "$remote" | cut -f1) ;;
-            2) merge_sha= ;;
-            *) echo "git ls-remote failed: rc=$rc" >&2; exit 1 ;;
-          esac
+          merge_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/pull/$PR_NUMBER/merge" --jq .object.sha 2>"$RUNNER_TEMP/merge-ref.err") || rc=$?
+          if [ "$rc" -ne 0 ]; then
+            if grep -q 'HTTP 404' "$RUNNER_TEMP/merge-ref.err"; then
+              merge_sha=
+            else
+              cat "$RUNNER_TEMP/merge-ref.err" >&2
+              echo "gh api failed: rc=$rc" >&2
+              exit 1
+            fi
+          fi
           if [ -n "$merge_sha" ] && ! printf '%s' "$merge_sha" | grep -Eqx '[0-9a-f]{40}'; then
             echo "unexpected merge ref: $merge_sha" >&2
             exit 1

@@ -7,7 +7,6 @@ on:
 permissions:
   contents: read
   checks: write
-  pull-requests: write
 
 concurrency:
   group: test-${{ github.event.pull_request.number }}
@@ -16,6 +15,7 @@ concurrency:
 jobs:
   unit-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -32,9 +32,10 @@ jobs:
         if: steps.changes.outputs.code == 'true'
         run: ./gradlew verifyStarter --continue
 
-      # 실패해도 결과를 남긴다
+      # 실패해도 결과를 남긴다. 포크 PR 은 토큰이 읽기 전용이라 체크를 못 쓰므로 이 단계 실패는 무시한다
       - name: Publish test report
         uses: dorny/test-reporter@v2
+        continue-on-error: true
         if: always() && steps.changes.outputs.code == 'true'
         with:
           name: Unit Test Results
