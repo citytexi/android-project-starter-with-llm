@@ -7,6 +7,7 @@ android {
 }
 
 dependencies {
+    api(project(":core:datastore"))
     api(libs.androidx.test.runner)
     api(libs.hilt.android.testing)
 }
