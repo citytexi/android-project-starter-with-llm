@@ -7,7 +7,7 @@ import androidx.navigation3.runtime.NavKey
 import kotlinx.serialization.Serializable
 
 // Back stack keys. They must be @Serializable: rememberNavBackStack saves them across
-// process death. app/proguard-rules.pro keeps NavKey classes for the reflective lookup.
+// process death. consumer-rules.pro keeps NavKey classes for the reflective lookup.
 
 @Serializable
 data object SampleKey : NavKey

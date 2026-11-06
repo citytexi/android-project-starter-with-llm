@@ -7,6 +7,7 @@ import com.example.starter.domain.usecase.ObserveLastRefreshedAtUseCase
 import com.example.starter.domain.usecase.ObserveSampleItemsUseCase
 import com.example.starter.domain.usecase.RefreshSampleItemsUseCase
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -87,6 +88,24 @@ class SampleViewModelTest {
             gate.value = true
             assertFalse(viewModel.uiState.value.isRefreshing)
             assertNull(viewModel.uiState.value.errorMessage)
+        }
+
+    @Test
+    fun `second Refresh while refreshing is ignored`() =
+        runTest {
+            val gate = MutableStateFlow(false)
+            coEvery { refreshItems() } coAnswers {
+                gate.first { it }
+                AppResult.Success(Unit)
+            }
+            val viewModel = viewModel()
+            collect(viewModel)
+
+            viewModel.onAction(SampleAction.Refresh)
+            viewModel.onAction(SampleAction.Refresh)
+            gate.value = true
+
+            coVerify(exactly = 1) { refreshItems() }
         }
 
     @Test

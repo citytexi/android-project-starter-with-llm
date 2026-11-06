@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Window theme behind Compose. Colors come from StarterTheme. -->
+    <!-- Window theme behind Compose. Colors come from StarterTheme. Light here,
+         dark in values-night, so dark mode has no white window flash. -->
     <style name="Theme.Starter" parent="android:Theme.Material.Light.NoActionBar" />
 
     <!-- Launch theme. installSplashScreen() swaps it for postSplashScreenTheme. -->
