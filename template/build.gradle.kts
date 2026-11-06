@@ -9,7 +9,9 @@ plugins {
     alias(libs.plugins.room) apply false
     alias(libs.plugins.roborazzi) apply false
     alias(libs.plugins.detekt) apply false
-    alias(libs.plugins.ktlint) apply false
+    // Applied here too so ktlint checks the root build.gradle.kts and settings.gradle.kts
+    // (ktlintKotlinScriptCheck). Modules get ktlint from starter.quality below.
+    alias(libs.plugins.ktlint)
     // Puts the build-logic convention plugins on the root classpath for `subprojects {}` below.
     id("starter.quality") apply false
 }
@@ -21,6 +23,7 @@ val testStarter by tasks.registering {
     description = "Runs unit tests, compiles instrumented tests and lints every module."
     // ModuleRulesTest lives in the included build-logic build, which subprojects {} does not reach.
     dependsOn(gradle.includedBuild("build-logic").task(":convention:test"))
+    dependsOn(tasks.named("ktlintCheck"))
 }
 
 // The single gate that scripts/verify.py and AGENTS.md call: testStarter plus builds and screenshots.
@@ -43,11 +46,15 @@ subprojects {
     // Matched by name when the task graph is built, so a module that lacks a task
     // (no androidTest sources, no screenshot plugin) is simply skipped.
     val module = this
-    fun matching(android: Set<String>, jvm: Set<String>, any: Set<String>) =
-        module.tasks.matching { task ->
-            val isAndroid = module.pluginManager.hasPlugin("com.android.base")
-            task.name in any || task.name in (if (isAndroid) android else jvm)
-        }
+
+    fun matching(
+        android: Set<String>,
+        jvm: Set<String>,
+        any: Set<String>,
+    ) = module.tasks.matching { task ->
+        val isAndroid = module.pluginManager.hasPlugin("com.android.base")
+        task.name in any || task.name in (if (isAndroid) android else jvm)
+    }
     testStarter.configure {
         dependsOn(matching(android = androidTestTasks, jvm = jvmTestTasks, any = qualityTasks))
     }
