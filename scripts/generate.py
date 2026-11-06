@@ -6,13 +6,16 @@ import argparse
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from starter_prd import Prd, class_prefix, parse_prd, validate  # noqa: E402,F401
+from starter_prd import (  # noqa: E402,F401
+    Prd, class_prefix, effective_prefix, parse_prd, validate,
+)
 
 TEXT_EXTENSIONS = {
     ".kt", ".kts", ".xml", ".toml", ".md", ".pro", ".properties",
@@ -24,6 +27,10 @@ OLD_PACKAGE_PATH = ("com", "example", "starter")
 _PREFIX_RE = re.compile(r"\bStarter")
 _LEFTOVER_RE = re.compile(r"com\.example\.starter|\bStarter")
 _APP_NAME_RE = re.compile(r'(<string\s+name="app_name"[^>]*>)(.*?)(</string>)', re.DOTALL)
+_MIN_SDK_LINE_RE = re.compile(r"(?m)^starter\.minSdk=.*$")
+_BASE_URL_LINE_RE = re.compile(r"(?m)^starter\.baseUrl=.*$")
+STRINGS_XML = "app/src/main/res/values/strings.xml"
+GRADLE_PROPERTIES = "gradle.properties"
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -34,6 +41,13 @@ MARKER_TEXT = (
     "Created by scripts/generate.py of android-project-starter-with-llm.\n"
     "generate.py --overwrite deletes a non-empty directory only if this file is present.\n"
 )
+
+
+class TemplateChangedError(ValueError):
+    """The template no longer has the shape generate.py edits (a template bug)."""
+
+    def __init__(self, detail: str):
+        super().__init__(f"template changed: {detail}")
 
 
 class LeftoverTokensError(RuntimeError):
@@ -68,6 +82,28 @@ def _is_text(path: Path) -> bool:
     return path.suffix.lower() in TEXT_EXTENSIONS
 
 
+def _read_text(path: Path) -> str:
+    # newline="" keeps CRLF as is, so files are rewritten with their own line endings.
+    with open(path, encoding="utf-8", newline="") as f:
+        return f.read()
+
+
+def _write_text(path: Path, text: str) -> None:
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        f.write(text)
+
+
+def _decode_text(path: Path) -> str | None:
+    """File content if it is UTF-8 text, None for binary files (NUL byte or not UTF-8)."""
+    data = path.read_bytes()
+    if b"\0" in data:
+        return None
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+
+
 def _iter_files(root: Path, skip: bool = False):
     """Yield files under root. skip=True drops build outputs (copy source only)."""
     for p in sorted(root.rglob("*")):
@@ -84,9 +120,11 @@ def find_leftovers(root: Path) -> list[str]:
         rel = p.relative_to(root)
         if any(_LEFTOVER_RE.search(part) for part in rel.parts):
             found.append(f"{rel.as_posix()}:0")
-        if not _is_text(p):
+        # Scan every UTF-8 file, not only the suffixes that _replace_text rewrites,
+        # so a token in e.g. an extension-less script is reported instead of shipped.
+        text = _decode_text(p)
+        if text is None:
             continue
-        text = p.read_text(encoding="utf-8", errors="replace")
         for n, line in enumerate(text.splitlines(), 1):
             if _LEFTOVER_RE.search(line):
                 found.append(f"{p.relative_to(root).as_posix()}:{n}")
@@ -137,8 +175,21 @@ def _check_output_dir(out: Path, repo_root: Path, overwrite: bool) -> None:
             raise ValueError(f"refusing to use dangerous output directory: {out_a}")
     elif out_a == Path(out_a.anchor):
         raise ValueError(f"refusing to use dangerous output directory: {out_a}")
-    # Inside the repo only <repo>/build/<something> is allowed.
-    for anc, below in _existing_ancestors(out_a):
+    # Inside the repo only <repo>/build/<something> is allowed. Check the resolved path
+    # too: a symlink outside the repo can point into one of its subdirectories.
+    for candidate in (out_a, out_a.resolve()):
+        _check_not_in_repo(candidate, repo_a, out_a)
+    if out_a.exists() and (not out_a.is_dir() or any(out_a.iterdir())):
+        if not overwrite:
+            raise FileExistsError(f"output directory is not empty: {out_a} (use --overwrite)")
+        if not out_a.is_dir() or not (out_a / MARKER_NAME).is_file():
+            raise ValueError(
+                f"refusing to delete a directory not created by generate.py: {out_a}"
+            )
+
+
+def _check_not_in_repo(path: Path, repo_a: Path, shown: Path) -> None:
+    for anc, below in _existing_ancestors(path):
         if not _same(anc, repo_a):
             continue
         build = repo_a / "build"
@@ -148,16 +199,30 @@ def _check_output_dir(out: Path, repo_root: Path, overwrite: bool) -> None:
         )
         if not in_build or len(below) < 2:
             raise ValueError(
-                f"refusing to write inside the starter repo (only build/<dir> is allowed): {out_a}"
+                f"refusing to write inside the starter repo (only build/<dir> is allowed): {shown}"
             )
-        break
-    if out_a.exists() and (not out_a.is_dir() or any(out_a.iterdir())):
-        if not overwrite:
-            raise FileExistsError(f"output directory is not empty: {out_a} (use --overwrite)")
-        if not out_a.is_dir() or not (out_a / MARKER_NAME).is_file():
-            raise ValueError(
-                f"refusing to delete a directory not created by generate.py: {out_a}"
-            )
+        return
+
+
+def _force_writable(func, path, _exc) -> None:
+    """rmtree error handler: make path (and its parent) writable, then retry once.
+
+    Windows refuses to delete read-only files (git marks some objects read-only);
+    POSIX refuses to delete entries of a read-only directory.
+    """
+    parent = os.path.dirname(path)
+    if parent:
+        os.chmod(parent, os.stat(parent).st_mode | stat.S_IRWXU)
+    if not os.path.islink(path):
+        os.chmod(path, os.stat(path).st_mode | stat.S_IWRITE)
+    func(path)
+
+
+def _rmtree(path: Path) -> None:
+    if sys.version_info >= (3, 12):
+        shutil.rmtree(path, onexc=_force_writable)
+    else:
+        shutil.rmtree(path, onerror=lambda f, p, e: _force_writable(f, p, e[1]))
 
 
 def _rename_package_dirs(root: Path, new_package: str, prefix: str) -> None:
@@ -193,19 +258,43 @@ def _replace_text(root: Path, prd: Prd, prefix: str) -> None:
     for p in _iter_files(root):
         if not _is_text(p):
             continue
-        text = p.read_text(encoding="utf-8")
+        text = _read_text(p)
         new = text.replace(OLD_PACKAGE, prd.package_name)
         new = new.replace("com/example/starter", prd.package_name.replace(".", "/"))
         new = _PREFIX_RE.sub(prefix, new)
-        rel = p.relative_to(root).as_posix()
-        if rel == "app/src/main/res/values/strings.xml":
-            esc = escape_android_string(prd.app_name)
-            new = _APP_NAME_RE.sub(lambda m: m.group(1) + esc + m.group(3), new)
-        elif rel == "gradle.properties":
-            new = re.sub(r"(?m)^starter\.minSdk=.*$", lambda m: f"starter.minSdk={prd.min_sdk}", new)
-            new = re.sub(r"(?m)^starter\.baseUrl=.*$", lambda m: f"starter.baseUrl={prd.base_url}", new)
         if new != text:
-            p.write_text(new, encoding="utf-8", newline="")
+            _write_text(p, new)
+
+
+def _sub_once(pattern: re.Pattern, repl, text: str, what: str) -> str:
+    new, count = pattern.subn(repl, text)
+    if count != 1:
+        raise TemplateChangedError(f"expected exactly one {what}, found {count}")
+    return new
+
+
+def _apply_prd_values(root: Path, prd: Prd) -> None:
+    """Write user values. Runs after the leftover scan: they may contain `Starter`."""
+    strings, props = root / STRINGS_XML, root / GRADLE_PROPERTIES
+    for f in (strings, props):
+        if not f.is_file():
+            raise TemplateChangedError(f"{f.relative_to(root).as_posix()} is missing")
+    esc = escape_android_string(prd.app_name)
+    text = _read_text(strings)
+    _write_text(strings, _sub_once(
+        _APP_NAME_RE, lambda m: m.group(1) + esc + m.group(3), text,
+        f'<string name="app_name"> in {STRINGS_XML}',
+    ))
+    text = _read_text(props)
+    text = _sub_once(
+        _MIN_SDK_LINE_RE, lambda m: f"starter.minSdk={prd.min_sdk}", text,
+        f"starter.minSdk= line in {GRADLE_PROPERTIES}",
+    )
+    text = _sub_once(
+        _BASE_URL_LINE_RE, lambda m: f"starter.baseUrl={prd.base_url}", text,
+        f"starter.baseUrl= line in {GRADLE_PROPERTIES}",
+    )
+    _write_text(props, text)
 
 
 _IMPORT_LINE_RE = re.compile(r"^import\s+(\S.*?)\s*$")
@@ -228,85 +317,218 @@ def _import_key(line: str) -> tuple[int, str, str]:
     return (0, path, "")
 
 
-def sort_kotlin_imports(text: str) -> str:
-    """Rewrite the import block as one contiguous, ktlint-ordered, de-duplicated block."""
-    lines = text.splitlines(keepends=True)
-    first = next((i for i, ln in enumerate(lines) if _IMPORT_LINE_RE.match(ln.strip())), None)
-    if first is None:
-        return text
-    last = first
-    for i in range(first, len(lines)):
+def _header_end(lines: list[str]) -> int:
+    """Index of the first line after the file header (comments, @file:, package)."""
+    i, n = 0, len(lines)
+    while i < n:
+        stripped = lines[i].strip()
+        if not stripped or stripped.startswith("//"):
+            i += 1
+        elif stripped.startswith("/*"):
+            while i < n and "*/" not in lines[i]:
+                i += 1
+            i += 1
+        elif stripped.startswith("@file:"):
+            depth = 0
+            while i < n:
+                depth += lines[i].count("(") - lines[i].count(")")
+                i += 1
+                if depth <= 0:
+                    break
+        elif stripped.startswith("package ") or stripped == "package":
+            i += 1
+        else:
+            return i
+    return i
+
+
+def _import_runs(lines: list[str], start: int) -> list[tuple[int, int]]:
+    """(first, last) line indexes of each import run in the import region.
+
+    The region starts at `start` and ends before the first line that is not an import,
+    a blank line or a comment. Comment lines split runs; blank lines do not.
+    """
+    runs: list[tuple[int, int]] = []
+    first = last = None
+    i = start
+    while i < len(lines):
         stripped = lines[i].strip()
         if _IMPORT_LINE_RE.match(stripped):
+            if first is None:
+                first = i
             last = i
-        elif stripped:
+        elif not stripped:
+            pass
+        elif stripped.startswith("//") or stripped.startswith("/*"):
+            if first is not None:
+                runs.append((first, last))
+                first = last = None
+            if stripped.startswith("/*"):
+                while i < len(lines) and "*/" not in lines[i]:
+                    i += 1
+        else:
             break
-    block = [ln for ln in lines[first : last + 1] if ln.strip()]
-    nl = "\r\n" if lines[first].endswith("\r\n") else "\n"
+        i += 1
+    if first is not None:
+        runs.append((first, last))
+    return runs
+
+
+def _sorted_run(lines: list[str]) -> str:
+    nl = "\r\n" if lines[0].endswith("\r\n") else "\n"
     seen: set[str] = set()
     unique = []
-    for ln in block:
+    for ln in lines:
+        if not ln.strip():
+            continue
         norm = " ".join(ln.split())
         if norm not in seen:
             seen.add(norm)
             unique.append(ln.strip())
     unique.sort(key=_import_key)
-    tail = lines[last][len(lines[last].rstrip("\r\n")) :]
-    new_block = nl.join(unique) + tail
-    return "".join(lines[:first]) + new_block + "".join(lines[last + 1 :])
+    tail = lines[-1][len(lines[-1].rstrip("\r\n")) :]
+    return nl.join(unique) + tail
+
+
+def sort_kotlin_imports(text: str) -> str:
+    """Sort each import run of the file header in ktlint order and drop duplicates.
+
+    Only the header region is touched: imports after the first declaration (for example
+    inside a raw string) and comments before `package` stay as they are. Blank lines
+    inside a run are removed; a comment line between imports ends the run.
+    """
+    lines = text.splitlines(keepends=True)
+    runs = _import_runs(lines, _header_end(lines))
+    if not runs:
+        return text
+    out: list[str] = []
+    pos = 0
+    for first, last in runs:
+        out.extend(lines[pos:first])
+        out.append(_sorted_run(lines[first : last + 1]))
+        pos = last + 1
+    out.extend(lines[pos:])
+    return "".join(out)
 
 
 def _sort_imports_in_tree(root: Path) -> None:
     for p in _iter_files(root):
         if p.suffix.lower() not in (".kt", ".kts"):
             continue
-        text = p.read_text(encoding="utf-8")
+        text = _read_text(p)
         new = sort_kotlin_imports(text)
         if new != text:
-            p.write_text(new, encoding="utf-8", newline="")
+            _write_text(p, new)
 
 
 GIT_INIT_HINT = (
-    'git init -b main && git add -A && '
+    'git init -b main && git add -A && git update-index --chmod=+x gradlew && '
     'git commit -m "chore: initial project from android-project-starter"'
 )
 
 
+GIT_COMMANDS = (
+    ["init", "-b", "main"],
+    ["add", "-A"],
+    # Windows checkouts have no exec bit: record it so gradlew runs on macOS/Linux/CI.
+    ["update-index", "--chmod=+x", "gradlew"],
+    # The user's signing setup or global hooks must not block or alter the first commit.
+    ["-c", "commit.gpgsign=false", "commit", "--no-verify",
+     "-m", "chore: initial project from android-project-starter"],
+)
+
+
 def _git_init(out: Path) -> None:
-    subprocess.run(["git", "init", "-b", "main"], cwd=out, check=True)
-    subprocess.run(["git", "add", "-A"], cwd=out, check=True)
-    subprocess.run(
-        ["git", "commit", "-m", "chore: initial project from android-project-starter"],
-        cwd=out, check=True,
-    )
+    for args in GIT_COMMANDS:
+        if args[0] == "update-index" and not (out / "gradlew").is_file():
+            continue
+        # Output is captured and shown only when a command fails (see generate()).
+        subprocess.run(
+            ["git", *args], cwd=out, check=True,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace",
+        )
+
+
+_IMPORT_PATH_RE = re.compile(r"(?m)^[ \t]*import[ \t]+([\w.`]+)(?:[ \t]+as[ \t]+([\w`]+))?")
+_TOKEN_RE = re.compile(r"\bStarter(\w*)")
+
+
+def _source_roots(prd: Prd, repo_root: Path) -> list[Path]:
+    """Directories copied into the output, in copy order (later ones win)."""
+    roots = [repo_root / "template", repo_root / "variants" / "navigation" / prd.navigation]
+    if prd.ci:
+        ci_root = repo_root / "variants" / "ci"
+        roots.append(ci_root / "_shared")
+        roots.extend(ci_root / name for name in prd.ci)
+    return roots
+
+
+def find_prefix_clashes(roots: list[Path], prefix: str) -> list[str]:
+    """Imports that would clash with a renamed `Starter*` name, read from the sources.
+
+    `StarterDispatcher` becomes `<prefix>Dispatcher`. If a Kotlin file uses that name and
+    also imports the same simple name from another package (for prefix `Coroutine`:
+    `kotlinx.coroutines.CoroutineDispatcher`), the generated file does not compile.
+    Returns "file: import <path> clashes with <name> (from Starter<x>)" entries.
+    """
+    clashes = []
+    base = roots[0].parent if roots else Path()
+    for root in roots:
+        if not root.is_dir():
+            continue
+        for p in _iter_files(root, skip=True):
+            if p.suffix.lower() not in (".kt", ".kts"):
+                continue
+            text = _read_text(p)
+            used = {prefix + m.group(1): m.group(0) for m in _TOKEN_RE.finditer(text)}
+            if not used:
+                continue
+            for m in _IMPORT_PATH_RE.finditer(text):
+                path = m.group(1).replace("`", "")
+                if path == OLD_PACKAGE or path.startswith(OLD_PACKAGE + "."):
+                    continue
+                local = (m.group(2) or path.rsplit(".", 1)[-1]).replace("`", "")
+                if local in used:
+                    rel = p.relative_to(base).as_posix()
+                    clashes.append(
+                        f"{rel}: import {path} clashes with {local} (from {used[local]})"
+                    )
+    return clashes
 
 
 def generate(prd: Prd, repo_root: Path, overwrite: bool, git: bool = True) -> Path:
     out = prd.output_dir
     _check_output_dir(out, repo_root, overwrite)
+    prefix = effective_prefix(prd)
+    roots = _source_roots(prd, repo_root)
+    # Checked on the sources, before anything is written or deleted.
+    clashes = find_prefix_clashes(roots, prefix)
+    if clashes:
+        raise ValueError(
+            f"class prefix '{prefix}' clashes with imported names; set classPrefix in the "
+            "PRD to another PascalCase name (e.g. the app name):\n  " + "\n  ".join(clashes)
+        )
     if out.exists():
-        shutil.rmtree(out)
+        _rmtree(out)
     out.mkdir(parents=True)
     # Written first so a half-finished output (exit 3, I/O error) can still be overwritten.
     (out / MARKER_NAME).write_text(MARKER_TEXT, encoding="utf-8")
-    _copy_tree(repo_root / "template", out)
-    _copy_tree(repo_root / "variants" / "navigation" / prd.navigation, out)
-    if prd.ci:
-        ci_root = repo_root / "variants" / "ci"
-        _copy_tree(ci_root / "_shared", out)
-        for name in prd.ci:
-            _copy_tree(ci_root / name, out)
-    prefix = class_prefix(prd.package_name)
+    for root in roots:
+        _copy_tree(root, out)
     _rename_package_dirs(out, prd.package_name, prefix)
     _replace_text(out, prd, prefix)
     _sort_imports_in_tree(out)
     leftovers = find_leftovers(out)
     if leftovers:
         raise LeftoverTokensError(leftovers)
+    _apply_prd_values(out, prd)
     if git:
         try:
             _git_init(out)
         except (subprocess.CalledProcessError, OSError) as e:
+            output = getattr(e, "output", None)
+            if output:
+                print(output.rstrip(), file=sys.stderr)
             print(
                 f"warning: git init/commit failed ({e}); the project was generated. "
                 f"Configure git (user.name/user.email) and run: {GIT_INIT_HINT}",
@@ -322,7 +544,8 @@ def main(argv: list[str] | None = None, repo_root: Path | None = None) -> int:
     args = ap.parse_args(argv)
     prd_path = args.prd.resolve()
     try:
-        prd = parse_prd(prd_path.read_text(encoding="utf-8"), prd_path.parent)
+        # utf-8-sig drops the BOM that some Windows editors write.
+        prd = parse_prd(prd_path.read_text(encoding="utf-8-sig"), prd_path.parent)
     except (ValueError, OSError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
