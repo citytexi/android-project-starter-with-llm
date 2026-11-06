@@ -34,13 +34,8 @@ class KeystoreStringCipher
         private val lock = Any()
 
         override fun encrypt(plain: String): String {
-            val cipher =
-                try {
-                    initEncrypt(getOrCreateKey())
-                } catch (_: KeyPermanentlyInvalidatedException) {
-                    deleteKey()
-                    initEncrypt(getOrCreateKey())
-                }
+            // One retry with a fresh key, outside the try so a second failure propagates.
+            val cipher = tryInitEncrypt() ?: initEncrypt(getOrCreateKey())
             val iv = cipher.iv
             check(iv.size == IV_SIZE_BYTES) { "Unexpected GCM IV size" }
             val ciphertext = cipher.doFinal(plain.toByteArray(Charsets.UTF_8))
@@ -65,6 +60,18 @@ class KeystoreStringCipher
             } catch (_: IOException) {
                 null
             } catch (_: ProviderException) {
+                null
+            }
+
+        /** Returns `null` after deleting a broken key (invalidated or unrecoverable entry). */
+        private fun tryInitEncrypt(): Cipher? =
+            try {
+                initEncrypt(getOrCreateKey())
+            } catch (_: KeyPermanentlyInvalidatedException) {
+                deleteKey()
+                null
+            } catch (_: UnrecoverableKeyException) {
+                deleteKey()
                 null
             }
 

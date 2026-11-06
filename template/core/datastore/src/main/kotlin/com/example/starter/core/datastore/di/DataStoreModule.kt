@@ -2,8 +2,10 @@ package com.example.starter.core.datastore.di
 
 import android.content.Context
 import androidx.datastore.core.DataStore
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.preferencesDataStoreFile
 import com.example.starter.core.datastore.DataStoreSecureStore
 import com.example.starter.core.datastore.KeystoreStringCipher
@@ -18,6 +20,12 @@ import dagger.hilt.components.SingletonComponent
 import javax.inject.Named
 import javax.inject.Singleton
 
+/**
+ * Binds the Keystore cipher and secure store, and provides both Preferences DataStores.
+ *
+ * Both DataStores replace a corrupt file with empty preferences instead of failing every read.
+ * The `CoroutineDispatcher` for [DataStoreSecureStore] is bound in `data`.
+ */
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class DataStoreModule {
@@ -38,7 +46,9 @@ abstract class DataStoreModule {
         fun provideSecureDataStore(
             @ApplicationContext context: Context,
         ): DataStore<Preferences> =
-            PreferenceDataStoreFactory.create {
+            PreferenceDataStoreFactory.create(
+                corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() },
+            ) {
                 context.preferencesDataStoreFile(SECURE_PREFS_NAME)
             }
 
@@ -48,7 +58,9 @@ abstract class DataStoreModule {
         fun provideSettingsDataStore(
             @ApplicationContext context: Context,
         ): DataStore<Preferences> =
-            PreferenceDataStoreFactory.create {
+            PreferenceDataStoreFactory.create(
+                corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() },
+            ) {
                 context.preferencesDataStoreFile(SETTINGS_NAME)
             }
     }
