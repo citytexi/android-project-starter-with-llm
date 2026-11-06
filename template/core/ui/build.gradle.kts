@@ -6,3 +6,7 @@ plugins {
 android {
     namespace = "com.example.starter.core.ui"
 }
+
+dependencies {
+    implementation(project(":core:designsystem"))
+}
