@@ -218,6 +218,12 @@ def _sort_imports_in_tree(root: Path) -> None:
             p.write_text(new, encoding="utf-8", newline="")
 
 
+GIT_INIT_HINT = (
+    'git init -b main && git add -A && '
+    'git commit -m "chore: initial project from android-project-starter"'
+)
+
+
 def _git_init(out: Path) -> None:
     subprocess.run(["git", "init", "-b", "main"], cwd=out, check=True)
     subprocess.run(["git", "add", "-A"], cwd=out, check=True)
@@ -248,7 +254,14 @@ def generate(prd: Prd, repo_root: Path, overwrite: bool, git: bool = True) -> Pa
     if leftovers:
         raise LeftoverTokensError(leftovers)
     if git:
-        _git_init(out)
+        try:
+            _git_init(out)
+        except (subprocess.CalledProcessError, OSError) as e:
+            print(
+                f"warning: git init/commit failed ({e}); the project was generated. "
+                f"Configure git (user.name/user.email) and run: {GIT_INIT_HINT}",
+                file=sys.stderr,
+            )
     return out
 
 
@@ -271,7 +284,7 @@ def main(argv: list[str] | None = None, repo_root: Path | None = None) -> int:
     repo_root = repo_root or REPO_ROOT
     try:
         out = generate(prd, repo_root, args.overwrite)
-    except (FileExistsError, FileNotFoundError, ValueError) as e:
+    except (FileExistsError, FileNotFoundError, ValueError, OSError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
     except LeftoverTokensError as e:

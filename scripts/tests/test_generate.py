@@ -334,6 +334,32 @@ class CliTest(unittest.TestCase):
         self.addCleanup(setattr, generate, "find_leftovers", orig)
         self.assertEqual(self.run_prd(self.BODY % ""), 3)
 
+    def test_git_failure_is_warning_exit_0(self):
+        import contextlib
+        import io
+        import subprocess
+        from unittest import mock
+        prd = self.tmp / "p.prd.md"
+        prd.write_text(self.BODY % "", encoding="utf-8")
+        err = io.StringIO()
+        with mock.patch.object(generate.subprocess, "run", side_effect=FileNotFoundError("git")), \
+                contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+            code = generate.main(["--prd", str(prd), "--overwrite"], repo_root=self.repo)
+        self.assertEqual(code, 0)
+        self.assertIn("warning: git init/commit failed", err.getvalue())
+        err = io.StringIO()
+        boom = subprocess.CalledProcessError(128, "git")
+        with mock.patch.object(generate.subprocess, "run", side_effect=boom), \
+                contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+            code = generate.main(["--prd", str(prd), "--overwrite"], repo_root=self.repo)
+        self.assertEqual(code, 0)
+        self.assertIn("warning: git init/commit failed", err.getvalue())
+
+    def test_oserror_during_copy_exit_2(self):
+        from unittest import mock
+        with mock.patch.object(generate.shutil, "copy2", side_effect=PermissionError("denied")):
+            self.assertEqual(self.run_prd(self.BODY % ""), 2)
+
 
 if __name__ == "__main__":
     unittest.main()
