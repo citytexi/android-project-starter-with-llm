@@ -6,6 +6,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.example.starter.core.common.AppResult
 import com.example.starter.core.database.StarterDatabase
+import com.example.starter.core.database.dao.SampleItemDao
 import com.example.starter.core.database.model.SampleItemEntity
 import com.example.starter.core.datastore.SettingsDataSource
 import com.example.starter.core.network.SampleApi
@@ -53,10 +54,11 @@ class SampleRepositoryImplTest {
     private fun TestScope.repository(
         api: SampleApi,
         settings: SettingsDataSource,
+        dao: SampleItemDao = db.sampleItemDao(),
     ) = SampleRepositoryImpl(
         database = db,
         api = api,
-        dao = db.sampleItemDao(),
+        dao = dao,
         settings = settings,
         ioDispatcher = StandardTestDispatcher(testScheduler),
         clock = { NOW },
@@ -72,6 +74,7 @@ class SampleRepositoryImplTest {
     @Test
     fun `refresh success caches items and records time`() =
         runTest {
+            db.sampleItemDao().upsertAll(listOf(SampleItemEntity(9, "stale")))
             val api =
                 FakeApi { listOf(SampleItemResponse(2, "b"), SampleItemResponse(1, "a")) }
             val repository = repository(api, settings())
@@ -93,6 +96,29 @@ class SampleRepositoryImplTest {
             val result = repository.refresh()
 
             assertEquals(failure, assertIs<AppResult.Failure>(result).error)
+            assertEquals(listOf(SampleItem(9, "old")), repository.observeItems().first())
+            assertNull(repository.observeLastRefreshedAt().first())
+        }
+
+    @Test
+    fun `refresh rolls back clear when write fails`() =
+        runTest {
+            val real = db.sampleItemDao()
+            real.upsertAll(listOf(SampleItemEntity(9, "old")))
+            val failure = IllegalStateException("disk full")
+            val failingDao =
+                object : SampleItemDao by real {
+                    override suspend fun upsertAll(items: List<SampleItemEntity>): Unit = throw failure
+                }
+            val api = FakeApi { listOf(SampleItemResponse(1, "a")) }
+            val repository = repository(api, settings(), failingDao)
+
+            val result = repository.refresh()
+
+            // Coroutine stack-trace recovery may copy the exception, so compare type and message.
+            val error = assertIs<AppResult.Failure>(result).error
+            assertIs<IllegalStateException>(error)
+            assertEquals("disk full", error.message)
             assertEquals(listOf(SampleItem(9, "old")), repository.observeItems().first())
             assertNull(repository.observeLastRefreshedAt().first())
         }
