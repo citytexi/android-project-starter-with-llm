@@ -60,7 +60,7 @@ nav 파일 이름은 `StarterRoutes`/`StarterNavKeys`처럼 접두사를 쓴다.
 
 1. `feature/sample`을 `feature/<name>`으로 복사한다. `sample`을 `<name>`으로 바꾼다(디렉터리, 패키지 `com.example.starter.feature.<name>`, `namespace`, 클래스 이름).
    - `build.gradle.kts`는 플러그인 `starter.android.feature`(library + compose + hilt)와 `starter.android.screenshot`을 쓰고 `namespace = "com.example.starter.feature.<name>"`로 둔다.
-   - 복사한 `SampleViewModel`, `SampleViewModelTest`, `SampleScreenScreenshotTest`는 sample UseCase를 주입받는다. 1단계에서 sample을 <name>으로 바꾸면 존재하지 않는 UseCase를 참조하게 되므로, 새 feature의 UseCase로 다시 쓰거나 지운다.
+   - 복사한 `SampleViewModel`, `SampleViewModelTest`, `SampleScreenScreenshotTest`는 sample UseCase를 주입받는다. 1단계에서 sample을 `<name>`으로 바꾸면 존재하지 않는 UseCase를 참조하게 되므로, 새 feature의 UseCase로 다시 쓰거나 지운다.
 2. `settings.gradle.kts`에 `include(":feature:<name>")`을 추가한다. `app/build.gradle.kts`에도 `implementation(project(":feature:<name>"))`을 추가한다.
 3. 데이터가 필요하면 아래 순서로 만든다.
    - `domain`: 모델, `<Name>Repository` 인터페이스, `<Action><Name>UseCase`(`operator fun invoke`)
@@ -78,6 +78,7 @@ nav 파일 이름은 `StarterRoutes`/`StarterNavKeys`처럼 접두사를 쓴다.
    - `core/navigation/.../StarterNavKeys.kt`에 `@Serializable data object <Name>Key : NavKey`를 추가한다.
    - `feature/<name>/.../navigation/<Name>Navigation.kt`에 `fun EntryProviderScope<NavKey>.<name>Entry() { entry<<Name>Key> { <Name>Route() } }`를 만든다.
    - `app/.../navigation/StarterNavHost.kt`의 `entryProvider { }` 블록에서 `<name>Entry()`를 호출한다.
+
 5. 테스트를 쓴다(ViewModel 단위 테스트, 화면 스크린샷 테스트는 `SampleViewModelTest`, `SampleScreenScreenshotTest` 참고). `./gradlew verifyStarter`로 마무리한다.
 
 ## 5. 검증
