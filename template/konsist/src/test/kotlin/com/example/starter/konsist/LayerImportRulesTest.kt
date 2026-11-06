@@ -10,15 +10,15 @@ class LayerImportRulesTest {
         assertTrue(files.isNotEmpty(), "no feature sources found, scope is wrong")
         val forbidden =
             listOf(
-                "com.example.starter.data.",
-                "com.example.starter.core.network.",
-                "com.example.starter.core.database.",
-                "com.example.starter.core.datastore.",
+                "com.example.starter.data",
+                "com.example.starter.core.network",
+                "com.example.starter.core.database",
+                "com.example.starter.core.datastore",
             )
         val violations =
             files.flatMap { file ->
                 file.imports
-                    .filter { import -> forbidden.any { import.name.startsWith(it) } }
+                    .filter { import -> forbidden.any { isInPackage(import.name, it) } }
                     .map { "${file.projectPath}: ${it.name}" }
             }
         assertTrue(violations.isEmpty(), "feature imports forbidden layers:\n${violations.joinToString("\n")}")
@@ -31,7 +31,7 @@ class LayerImportRulesTest {
         val violations =
             files.flatMap { file ->
                 file.imports
-                    .filter { it.name.startsWith("android.") || it.name.startsWith("androidx.") }
+                    .filter { isInPackage(it.name, "android") || isInPackage(it.name, "androidx") }
                     .map { "${file.projectPath}: ${it.name}" }
             }
         assertTrue(violations.isEmpty(), "domain must stay Android-free:\n${violations.joinToString("\n")}")

@@ -5,8 +5,7 @@ import org.junit.Test
 import kotlin.test.assertTrue
 
 class NamingRulesTest {
-    private fun classes(): List<KoClassDeclaration> =
-        productionScope().files.filter { it.isProduction() }.flatMap { it.classes(includeNested = true) }
+    private fun classes(): List<KoClassDeclaration> = allProductionFiles().flatMap { it.classes(includeNested = true) }
 
     private fun check(
         message: String,
@@ -29,9 +28,7 @@ class NamingRulesTest {
     @Test
     fun `Repository interfaces live in domain`() {
         val repos =
-            productionScope()
-                .files
-                .filter { it.isProduction() }
+            allProductionFiles()
                 .flatMap { it.interfaces(includeNested = true) }
                 .filter { it.name.endsWith("Repository") }
         assertTrue(repos.isNotEmpty(), "no Repository interfaces found, scope is wrong")
@@ -47,6 +44,9 @@ class NamingRulesTest {
     fun `RepositoryImpl classes live in data and implement a domain Repository`() {
         val impls = classes().filter { it.name.endsWith("RepositoryImpl") }
         assertTrue(impls.isNotEmpty(), "no RepositoryImpl found, scope is wrong")
+        // Limitation: Konsist does not resolve the parent's package here, so the parent is matched by
+        // simple name against the Repository interfaces declared in domain. A same-named interface
+        // elsewhere would be accepted.
         val domainRepos =
             productionFiles("domain")
                 .flatMap { it.interfaces(includeNested = true) }
