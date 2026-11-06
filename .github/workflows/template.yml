@@ -14,10 +14,6 @@ concurrency:
   group: template-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-env:
-  # actionlint 버전과 설치 스크립트 커밋을 고정한다
-  ACTIONLINT_VERSION: "1.7.7"
-
 jobs:
   scripts:
     runs-on: ubuntu-latest
@@ -31,11 +27,8 @@ jobs:
       - name: ui-diff script tests
         run: python3 -m unittest discover -s variants/ci/ui-diff/.github/scripts/ui_diff -p 'test_*.py'
 
-      - name: Install actionlint
-        run: |
-          curl -sSfL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
-            | tar -xz -C "$RUNNER_TEMP" actionlint
-          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      # 버전 고정 + sha256 검증은 로컬 액션 한 곳에서 관리한다
+      - uses: ./.github/actions/install-actionlint
 
       # 변형 workflow 의 로컬 composite action 참조(./.github/actions/...)는 생성된 프로젝트 안에서만 풀린다.
       # actionlint 는 workflow 파일 단위 검사라 이를 문제 삼지 않으므로 변형 원본도 여기서 검사하고,
@@ -68,7 +61,13 @@ jobs:
       # ubuntu-latest 에는 Android SDK 가 있고 ANDROID_HOME 이 설정돼 있다.
       # 라이선스만 수락해 두면 AGP 가 compileSdk 37 플랫폼을 자동으로 내려받는다.
       - name: Accept Android SDK licenses
-        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+        run: |
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ -x "$sdkmanager" ]; then
+            yes | "$sdkmanager" --licenses > /dev/null || echo "::warning::sdkmanager --licenses failed; AGP may not download platform 37"
+          else
+            echo "::warning::sdkmanager not found at $sdkmanager; skipping license acceptance"
+          fi
 
       # generate.py 가 생성물에 git init + 첫 커밋을 하므로 신원이 필요하다
       - name: Set git identity
@@ -82,11 +81,8 @@ jobs:
       - name: Verify generated project
         run: python3 scripts/verify.py build/dev/${{ matrix.nav }}
 
-      - name: Install actionlint
-        run: |
-          curl -sSfL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
-            | tar -xz -C "$RUNNER_TEMP" actionlint
-          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      # 버전 고정 + sha256 검증은 로컬 액션 한 곳에서 관리한다
+      - uses: ./.github/actions/install-actionlint
 
       - name: actionlint (generated workflows)
         working-directory: build/dev/${{ matrix.nav }}
@@ -98,4 +94,5 @@ jobs:
         with:
           name: reports-${{ matrix.nav }}
           path: build/dev/${{ matrix.nav }}/**/build/reports/**
+          if-no-files-found: ignore
           retention-days: 7
