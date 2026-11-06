@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Window theme behind Compose. Colors come from StarterTheme. -->
+    <style name="Theme.Starter" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- Launch theme. installSplashScreen() swaps it for postSplashScreenTheme. -->
+    <style name="Theme.Starter.Splash" parent="Theme.SplashScreen">
+        <item name="postSplashScreenTheme">@style/Theme.Starter</item>
+    </style>
+</resources>

@@ -26,6 +26,7 @@ internal fun Project.configureAndroidApplication(extension: ApplicationExtension
             }
         }
     }
+    configureReleaseSigning(extension)
 }
 
 internal fun Project.configureAndroidLibrary(extension: LibraryExtension) {

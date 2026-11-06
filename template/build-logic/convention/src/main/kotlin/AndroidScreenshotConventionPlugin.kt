@@ -35,6 +35,8 @@ class AndroidScreenshotConventionPlugin : Plugin<Project> {
         // With Hilt, AGP pushes the unit-test R jar (from isIncludeAndroidResources) through Hilt's
         // ASM transform into testClassesDirs. A module with no tests yet then fails Gradle 9's
         // "test sources present but no tests discovered" check, so turn that check off here.
+        // :feature:sample has tests, but a new feature module (feature convention + screenshot)
+        // starts without any and would fail testDebugUnitTest, so this stays.
         pluginManager.withPlugin(libs.plugins.hilt.get().pluginId) {
             tasks.withType<Test>().configureEach { failOnNoDiscoveredTests.set(false) }
         }

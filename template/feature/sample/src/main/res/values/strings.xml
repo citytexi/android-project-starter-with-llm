@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sample_title">Sample items</string>
+    <string name="sample_refresh">Refresh</string>
+    <string name="sample_dismiss">Dismiss</string>
+    <string name="sample_empty">No items yet. Tap Refresh.</string>
+    <string name="sample_never_refreshed">Never refreshed</string>
+    <string name="sample_last_refreshed">Last refreshed: %1$s</string>
+</resources>

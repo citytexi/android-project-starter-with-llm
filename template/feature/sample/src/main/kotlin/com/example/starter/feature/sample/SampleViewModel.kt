@@ -1,0 +1,68 @@
+package com.example.starter.feature.sample
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.starter.core.common.AppResult
+import com.example.starter.domain.usecase.ObserveLastRefreshedAtUseCase
+import com.example.starter.domain.usecase.ObserveSampleItemsUseCase
+import com.example.starter.domain.usecase.RefreshSampleItemsUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+@HiltViewModel
+class SampleViewModel
+    @Inject
+    constructor(
+        observeSampleItems: ObserveSampleItemsUseCase,
+        observeLastRefreshedAt: ObserveLastRefreshedAtUseCase,
+        private val refreshSampleItems: RefreshSampleItemsUseCase,
+    ) : ViewModel() {
+        private val refreshState = MutableStateFlow(RefreshState())
+
+        val uiState: StateFlow<SampleUiState> =
+            combine(observeSampleItems(), observeLastRefreshedAt(), refreshState) { items, lastRefreshedAt, refresh ->
+                SampleUiState(
+                    items = items,
+                    lastRefreshedAt = lastRefreshedAt,
+                    isRefreshing = refresh.isRefreshing,
+                    errorMessage = refresh.errorMessage,
+                )
+            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), SampleUiState())
+
+        fun onAction(action: SampleAction) {
+            when (action) {
+                SampleAction.Refresh -> refresh()
+                SampleAction.DismissError -> refreshState.update { it.copy(errorMessage = null) }
+            }
+        }
+
+        private fun refresh() {
+            if (refreshState.value.isRefreshing) return
+            refreshState.update { it.copy(isRefreshing = true, errorMessage = null) }
+            viewModelScope.launch {
+                val failure = refreshSampleItems() as? AppResult.Failure
+                refreshState.value =
+                    RefreshState(
+                        isRefreshing = false,
+                        errorMessage = failure?.let { it.error.message ?: DEFAULT_ERROR },
+                    )
+            }
+        }
+
+        private data class RefreshState(
+            val isRefreshing: Boolean = false,
+            val errorMessage: String? = null,
+        )
+
+        private companion object {
+            const val STOP_TIMEOUT_MILLIS = 5_000L
+            const val DEFAULT_ERROR = "Refresh failed"
+        }
+    }
