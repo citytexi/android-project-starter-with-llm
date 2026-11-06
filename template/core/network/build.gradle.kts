@@ -14,3 +14,13 @@ android {
         buildConfigField("String", "BASE_URL", "\"${providers.gradleProperty("starter.baseUrl").get()}\"")
     }
 }
+
+dependencies {
+    api(libs.retrofit)
+    api(libs.kotlinx.serialization.json)
+    implementation(libs.retrofit.kotlinx.serialization.converter)
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.logging.interceptor)
+
+    testImplementation(libs.okhttp.mockwebserver)
+}

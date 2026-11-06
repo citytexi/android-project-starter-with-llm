@@ -11,3 +11,13 @@ android {
 room {
     schemaDirectory("$projectDir/schemas")
 }
+
+dependencies {
+    api(libs.androidx.room.runtime)
+    api(libs.kotlinx.coroutines.core)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
+
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+}
