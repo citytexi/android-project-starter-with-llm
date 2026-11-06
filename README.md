@@ -71,6 +71,8 @@ python3 scripts/generate.py --prd scripts/fixtures/dev-nav3.prd.md --overwrite
 python3 scripts/verify.py build/dev/nav3
 ```
 
+생성물 루트에는 `.starter-generated` 표식이 생기고, `--overwrite`는 이 표식이 있는 디렉터리만 지웁니다. 레포 안에서는 `build/` 아래에만 생성할 수 있습니다. 생성된 프로젝트에서 빠르게 확인할 때는 `./gradlew testStarter`(유닛 테스트, 계측 테스트 컴파일, Konsist, detekt, ktlint), 마무리 게이트는 `./gradlew verifyStarter`(여기에 debug/release 빌드와 스크린샷 기록 추가)입니다.
+
 스크립트 단위 테스트는 다음과 같이 실행합니다.
 
 ```bash

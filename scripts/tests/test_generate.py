@@ -10,6 +10,7 @@ import generate  # noqa: E402
 import starter_prd  # noqa: E402
 from starter_prd import Prd  # noqa: E402
 
+REPO = Path(__file__).resolve().parent.parent.parent
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "mini_template"
 
 
@@ -108,6 +109,48 @@ class ValidateTest(unittest.TestCase):
         self.assertEqual(starter_prd.validate(make_prd(base_url="https://a.com/")), [])
 
 
+    def test_validate_min_sdk_range(self):
+        for sdk in (23, 26, 36):
+            with self.subTest(sdk=sdk):
+                self.assertEqual(starter_prd.validate(make_prd(min_sdk=sdk)), [])
+        for sdk in (0, 21, 22, 37, 99):
+            with self.subTest(sdk=sdk):
+                errs = starter_prd.validate(make_prd(min_sdk=sdk))
+                self.assertEqual(len(errs), 1)
+                self.assertIn("23", errs[0])
+                self.assertIn("36", errs[0])
+
+    def test_validate_rejects_class_prefix_starting_with_starter(self):
+        for name in ("io.club.starter", "io.club.starterkit", "io.club.starter_kit"):
+            with self.subTest(name=name):
+                errs = starter_prd.validate(make_prd(package_name=name))
+                self.assertEqual(len(errs), 1)
+                self.assertIn("Starter", errs[0])
+        self.assertEqual(starter_prd.validate(make_prd(package_name="io.club.mystarter")), [])
+
+    def test_validate_rejects_platform_first_segment(self):
+        for first in ("java", "javax", "kotlin", "android", "androidx"):
+            with self.subTest(first=first):
+                errs = starter_prd.validate(make_prd(package_name=f"{first}.club.app"))
+                self.assertEqual(len(errs), 1)
+                self.assertIn(first, errs[0])
+        self.assertEqual(starter_prd.validate(make_prd(package_name="io.android.app")), [])
+
+    def test_validate_base_url_is_parsed(self):
+        ok = ("https://a.com/", "https://api.a.com/v1/", "https://a.com:8443/x/")
+        bad = (
+            "https:///", "https://a.com/x y/", "https://a.com/\"/", "https://a.com/\\/",
+            "https://a.com/'/", "ftp://a.com/", "https:/a.com/", " https://a.com/",
+            "https://a.com/\t/",
+        )
+        for url in ok:
+            with self.subTest(url=url):
+                self.assertEqual(starter_prd.validate(make_prd(base_url=url)), [])
+        for url in bad:
+            with self.subTest(url=url):
+                self.assertEqual(len(starter_prd.validate(make_prd(base_url=url))), 1)
+
+
 class HelpersTest(unittest.TestCase):
     def test_class_prefix(self):
         self.assertEqual(generate.class_prefix("io.github.club.devsample"), "Devsample")
@@ -121,6 +164,7 @@ class HelpersTest(unittest.TestCase):
         self.assertEqual(generate.escape_android_string("@home"), "\\@home")
         self.assertEqual(generate.escape_android_string("?q"), "\\?q")
         self.assertEqual(generate.escape_android_string("a<b"), "a&lt;b")
+        self.assertEqual(generate.escape_android_string("100% 모임"), "100% 모임")
 
     def test_find_leftovers_reports_file_and_line(self):
         with tempfile.TemporaryDirectory() as d:
@@ -261,9 +305,6 @@ class GenerateTest(unittest.TestCase):
         with self.assertRaises(FileExistsError):
             self.gen()
         self.assertTrue((self.out / "keep.txt").exists())
-        self.gen(overwrite=True)
-        self.assertFalse((self.out / "keep.txt").exists())
-        self.assertTrue((self.out / "build.gradle.kts").exists())
 
     def test_generate_skips_build_outputs(self):
         t = self.repo / "template"
@@ -301,6 +342,68 @@ class GenerateTest(unittest.TestCase):
         self.assertTrue((self.repo / "template/build.gradle.kts").exists())
 
 
+    def test_overwrite_refuses_dir_without_marker(self):
+        self.out.mkdir()
+        (self.out / "keep.txt").write_text("hi")
+        with self.assertRaises(ValueError) as cm:
+            self.gen(overwrite=True)
+        self.assertIn("not created by generate.py", str(cm.exception))
+        self.assertIn(str(self.out), str(cm.exception))
+        self.assertTrue((self.out / "keep.txt").exists())
+
+    def test_overwrite_replaces_dir_with_marker(self):
+        self.gen()
+        marker = self.out / generate.MARKER_NAME
+        self.assertTrue(marker.is_file())
+        self.assertEqual(generate.find_leftovers(self.out), [])
+        (self.out / "stale.txt").write_text("x")
+        self.gen(overwrite=True)
+        self.assertFalse((self.out / "stale.txt").exists())
+        self.assertTrue(marker.is_file())
+
+    def test_overwrite_refuses_plain_file(self):
+        self.out.write_text("not a dir")
+        with self.assertRaises(ValueError):
+            self.gen(overwrite=True)
+        self.assertEqual(self.out.read_text(), "not a dir")
+
+    def test_refuses_output_inside_repo_outside_build(self):
+        for d in ("docs", ".git", "docs/sub", "build"):
+            with self.subTest(d=d):
+                (self.repo / d).mkdir(parents=True, exist_ok=True)
+                with self.assertRaises(ValueError):
+                    generate.generate(
+                        make_prd(output_dir=self.repo / d / "o" if d != "build" else self.repo / d),
+                        self.repo, True, git=False,
+                    )
+        self.assertFalse((self.repo / "docs/o").exists())
+
+    def test_allows_output_under_repo_build(self):
+        out = self.repo / "build/dev/x"
+        generate.generate(make_prd(output_dir=out), self.repo, False, git=False)
+        self.assertTrue((out / "build.gradle.kts").is_file())
+        generate.generate(make_prd(output_dir=out), self.repo, True, git=False)
+        self.assertTrue((out / generate.MARKER_NAME).is_file())
+
+    def test_refuses_case_variant_of_protected_dir(self):
+        case_repo = self.tmp / "REPO"
+        if not case_repo.exists():
+            self.skipTest("file system is case-sensitive")
+        (self.repo / "template" / "keep.txt").write_text("x")
+        for out in (case_repo / "TEMPLATE", case_repo / "Template" / "o", self.tmp / "Repo"):
+            with self.subTest(out=out):
+                with self.assertRaises(ValueError):
+                    generate.generate(make_prd(output_dir=out), self.repo, True, git=False)
+        self.assertTrue((self.repo / "template" / "keep.txt").exists())
+
+
+class TemplateFilesTest(unittest.TestCase):
+    def test_app_name_is_not_formatted(self):
+        # formatted="false" lets an appName contain a literal '%'.
+        text = (REPO / "template/app/src/main/res/values/strings.xml").read_text(encoding="utf-8")
+        self.assertIn('<string name="app_name" formatted="false">', text)
+
+
 class CliTest(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
@@ -319,7 +422,7 @@ class CliTest(unittest.TestCase):
 
     BODY = (
         "```properties\nappName = A\npackageName = io.club.app\n"
-        "baseUrl = https://a.com/\nnavigation = nav3\noutputDir = ../out\n%s```\n"
+        "baseUrl = https://a.com/\nnavigation = nav3\noutputDir = out\n%s```\n"
     )
 
     def test_exit_codes(self):

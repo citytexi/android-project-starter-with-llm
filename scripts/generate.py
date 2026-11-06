@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import shutil
 import subprocess
@@ -11,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from starter_prd import Prd, parse_prd, validate  # noqa: E402
+from starter_prd import Prd, class_prefix, parse_prd, validate  # noqa: E402,F401
 
 TEXT_EXTENSIONS = {
     ".kt", ".kts", ".xml", ".toml", ".md", ".pro", ".properties",
@@ -26,17 +27,19 @@ _APP_NAME_RE = re.compile(r'(<string\s+name="app_name"[^>]*>)(.*?)(</string>)', 
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+# Written at the root of every generated project. --overwrite deletes only directories
+# that carry it, so it never removes a directory generate.py did not create.
+MARKER_NAME = ".starter-generated"
+MARKER_TEXT = (
+    "Created by scripts/generate.py of android-project-starter-with-llm.\n"
+    "generate.py --overwrite deletes a non-empty directory only if this file is present.\n"
+)
 
 
 class LeftoverTokensError(RuntimeError):
     def __init__(self, leftovers: list[str]):
         super().__init__("leftover template tokens: " + ", ".join(leftovers))
         self.leftovers = leftovers
-
-
-def class_prefix(package_name: str) -> str:
-    last = package_name.split(".")[-1]
-    return "".join(p[:1].upper() + p[1:] for p in last.split("_") if p)
 
 
 def escape_android_string(value: str) -> str:
@@ -99,17 +102,62 @@ def _copy_tree(src: Path, dst: Path) -> None:
         shutil.copy2(p, target)
 
 
+def _same(a: Path, b: Path) -> bool:
+    """True if both paths exist and are the same file system object.
+
+    Compares inode/device, so case variants on case-insensitive file systems
+    (macOS APFS, Windows NTFS) and symlinks count as the same directory.
+    """
+    try:
+        return os.path.samefile(a, b)
+    except OSError:
+        return False
+
+
+def _existing_ancestors(path: Path):
+    """Yield (ancestor, parts below it) for path and each parent that exists."""
+    parts: list[str] = []
+    cur = path
+    while True:
+        if cur.exists():
+            yield cur, tuple(reversed(parts))
+        if cur.parent == cur:
+            return
+        parts.append(cur.name)
+        cur = cur.parent
+
+
 def _check_output_dir(out: Path, repo_root: Path, overwrite: bool) -> None:
-    out_r, repo_r = out.resolve(), repo_root.resolve()
-    for protected in ("template", "variants", "scripts"):
-        prot = repo_r / protected
-        if out_r == prot or prot in out_r.parents:
-            raise ValueError(f"refusing to write inside {protected}/: {out}")
-    if out_r == repo_r or out_r in repo_r.parents or out_r == Path(out_r.anchor) or out_r == Path.home():
-        raise ValueError(f"refusing to use dangerous output directory: {out}")
-    if out.exists() and (not out.is_dir() or any(out.iterdir())):
+    out_a = Path(os.path.abspath(out))
+    repo_a = Path(os.path.abspath(repo_root))
+    # The output must not be the repo, one of its ancestors, the FS root or home.
+    if out_a.exists():
+        danger = [repo_a, *repo_a.parents, Path(out_a.anchor), Path.home()]
+        if any(_same(out_a, d) for d in danger):
+            raise ValueError(f"refusing to use dangerous output directory: {out_a}")
+    elif out_a == Path(out_a.anchor):
+        raise ValueError(f"refusing to use dangerous output directory: {out_a}")
+    # Inside the repo only <repo>/build/<something> is allowed.
+    for anc, below in _existing_ancestors(out_a):
+        if not _same(anc, repo_a):
+            continue
+        build = repo_a / "build"
+        first = anc / below[0] if below else None
+        in_build = first is not None and (
+            _same(first, build) if first.exists() else below[0] == "build"
+        )
+        if not in_build or len(below) < 2:
+            raise ValueError(
+                f"refusing to write inside the starter repo (only build/<dir> is allowed): {out_a}"
+            )
+        break
+    if out_a.exists() and (not out_a.is_dir() or any(out_a.iterdir())):
         if not overwrite:
-            raise FileExistsError(f"output directory is not empty: {out} (use --overwrite)")
+            raise FileExistsError(f"output directory is not empty: {out_a} (use --overwrite)")
+        if not out_a.is_dir() or not (out_a / MARKER_NAME).is_file():
+            raise ValueError(
+                f"refusing to delete a directory not created by generate.py: {out_a}"
+            )
 
 
 def _rename_package_dirs(root: Path, new_package: str, prefix: str) -> None:
@@ -237,8 +285,10 @@ def generate(prd: Prd, repo_root: Path, overwrite: bool, git: bool = True) -> Pa
     out = prd.output_dir
     _check_output_dir(out, repo_root, overwrite)
     if out.exists():
-        shutil.rmtree(out) if out.is_dir() else out.unlink()
+        shutil.rmtree(out)
     out.mkdir(parents=True)
+    # Written first so a half-finished output (exit 3, I/O error) can still be overwritten.
+    (out / MARKER_NAME).write_text(MARKER_TEXT, encoding="utf-8")
     _copy_tree(repo_root / "template", out)
     _copy_tree(repo_root / "variants" / "navigation" / prd.navigation, out)
     if prd.ci:

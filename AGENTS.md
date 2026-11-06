@@ -26,11 +26,11 @@
 
 PRD 경로는 사용자가 알려준 파일이고, 없으면 `PRD.md`입니다. 파일이 없으면 `PRD.template.md`를 `PRD.md`로 복사할지 사용자에게 묻고, 값 채우는 것을 도와줍니다.
 
-PRD에서는 첫 번째 ```` ```properties ```` 블록만 읽습니다(`key = value`, `#`은 주석). 키는 `appName`, `packageName`, `minSdk`(기본 26), `baseUrl`, `navigation`(`nav2`/`nav3`, 기본 `nav3`), `ci`, `outputDir`입니다. `PRD.template.md`에 키 설명이 있습니다.
+PRD에서는 첫 번째 ```` ```properties ```` 블록만 읽습니다(`key = value`, `#`은 주석). 키는 `appName`, `packageName`, `minSdk`(23~36, 기본 26), `baseUrl`, `navigation`(`nav2`/`nav3`, 기본 `nav3`), `ci`, `outputDir`입니다. `PRD.template.md`에 키 설명이 있습니다.
 
 - 필수 값이 비었거나 모호하면 추측하지 말고 사용자에게 물어봅니다.
 - 값 검증은 스크립트가 합니다. 직접 판단해서 고치지 말고 스크립트의 오류 메시지를 그대로 전달합니다.
-- `appName`은 필수입니다. `baseUrl`은 `https://`로 시작하고 `/`로 끝나야 합니다.
+- `appName`은 필수입니다. `minSdk`는 23 이상 36 이하입니다. `baseUrl`은 호스트가 있는 `https://` 주소이고 `/`로 끝나야 하며 공백, 따옴표(`"`, `'`), 역슬래시(`\`)를 넣을 수 없습니다.
 - `ci`는 `build-debug`, `build-release`, `test`, `ui-diff`를 쉼표로 적습니다. 비우면 `.github/`가 생기지 않습니다.
 - `outputDir`을 생략하면 PRD 파일이 있는 디렉터리 기준 `../<패키지명 마지막 세그먼트>`에 생성합니다.
 
@@ -47,6 +47,8 @@ PRD에서는 첫 번째 ```` ```properties ```` 블록만 읽습니다(`key = va
    - 세그먼트가 2개 이상
    - Kotlin/Java 예약어(`in`, `is`, `fun`, `new`, `class`, `object` 등)를 세그먼트로 쓰지 않음
    - `com.example.*`로 시작하지 않음 (Play 스토어가 거부함)
+   - 첫 세그먼트가 `java`, `javax`, `kotlin`, `android`, `androidx`가 아님 (플랫폼 패키지와 겹침)
+   - 마지막 세그먼트가 `starter`로 시작하지 않음 (`starter`, `starterkit`, `starter_app` 등). 클래스 접두사가 `Starter...`가 되어 템플릿 토큰으로 오인됩니다.
 3. 사용자가 후보 중 하나를 고르거나 직접 입력할 때까지 **기다립니다.** 답이 오기 전에는 3단계로 넘어가지 않습니다.
 4. 정해진 값을 PRD 파일의 `packageName = ` 뒤에 써 넣습니다. 그다음 3단계로 진행합니다.
 
@@ -59,7 +61,9 @@ python3 scripts/generate.py --prd <PRD 경로>
 ```
 
 - 출력 디렉터리가 이미 있고 비어 있지 않으면 실패합니다(종료 코드 2).
-- **`--overwrite`는 출력 디렉터리 전체를 `rmtree`로 삭제합니다.** 기본 `outputDir`은 레포 밖의 형제 디렉터리(`../<마지막 세그먼트>`)라서 사용자의 기존 프로젝트가 있을 수 있습니다. 붙이기 전에 반드시 다음을 합니다.
+- 출력 디렉터리는 이 레포 안이면 안 됩니다. 예외는 `build/<디렉터리>` 아래뿐입니다(템플릿 관리자의 개발용). 대소문자만 다른 경로나 심볼릭 링크도 같은 디렉터리로 보고 거부합니다.
+- 생성물 루트에는 `.starter-generated` 표식 파일이 생깁니다. `--overwrite`는 이 표식이 있는 디렉터리만 지웁니다. 표식이 없는 비어 있지 않은 디렉터리는 `--overwrite`를 붙여도 `error: refusing to delete a directory not created by generate.py: <절대 경로>`로 거부합니다(종료 코드 2). 이때는 다른 `outputDir`을 쓰자고 제안합니다. 표식 파일을 직접 만들어 우회하지 않습니다.
+- **`--overwrite`는 출력 디렉터리 전체를 `rmtree`로 삭제합니다(이전에 `generate.py`가 만든 디렉터리일 때만).** 기본 `outputDir`은 레포 밖의 형제 디렉터리(`../<마지막 세그먼트>`)라서 사용자의 기존 프로젝트가 있을 수 있습니다. 붙이기 전에 반드시 다음을 합니다.
   1. 출력 디렉터리의 **절대 경로**를 사용자에게 보여줍니다.
   2. 그 안의 모든 것이 삭제된다고 말합니다.
   3. 그 질문에 대한 명시적인 yes를 받습니다.
@@ -129,4 +133,10 @@ python3 scripts/verify.py <outputDir>
 - `error: packageName segment '<seg>' is a reserved word`
 - `error: packageName '<name>' needs at least 2 segments (e.g. com.club.app)`
 - `error: appName is required`
-- `error: baseUrl must start with https:// and end with '/' (Retrofit requirement)`
+- `error: packageName must not start with '<seg>' (reserved: android, androidx, java, javax, kotlin)`
+- `error: packageName last segment '<seg>' gives class prefix '<Prefix>', which must not start with 'Starter' (template token)`
+- `error: minSdk must be between 23 and 36 (got <n>)`
+- `error: baseUrl must be an https:// URL with a host that ends with '/' and has no spaces, quotes or backslashes (Retrofit requirement)`
+- `error: output directory is not empty: <경로> (use --overwrite)`
+- `error: refusing to delete a directory not created by generate.py: <경로>`
+- `error: refusing to write inside the starter repo (only build/<dir> is allowed): <경로>`

@@ -6,10 +6,18 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlsplit
 
 NAVIGATIONS = ("nav2", "nav3")
 CI_OPTIONS = ("build-debug", "build-release", "test", "ui-diff")
 DEFAULT_MIN_SDK = 26
+# Hilt's lifecycle-viewmodel-compose needs API 23; targetSdk is pinned to 36.
+MIN_SDK_RANGE = (23, 36)
+# The generator swaps the `Starter` class prefix, so a new prefix that starts with it
+# would look like a leftover template token.
+TEMPLATE_PREFIX = "Starter"
+PLATFORM_ROOTS = frozenset({"java", "javax", "kotlin", "android", "androidx"})
+_BASE_URL_FORBIDDEN = re.compile(r"""[\s"'\\]""")
 
 _KOTLIN_KEYWORDS = {
     "as", "break", "class", "continue", "do", "else", "false", "for", "fun",
@@ -41,6 +49,12 @@ class Prd:
     navigation: Literal["nav2", "nav3"]
     ci: tuple[str, ...]
     output_dir: Path
+
+
+def class_prefix(package_name: str) -> str:
+    """Class-name prefix derived from the last package segment (club_moim -> ClubMoim)."""
+    last = package_name.split(".")[-1]
+    return "".join(p[:1].upper() + p[1:] for p in last.split("_") if p)
 
 
 def _read_properties(text: str) -> dict[str, str]:
@@ -97,9 +111,32 @@ def _package_errors(name: str) -> list[str]:
             )
         elif seg in RESERVED_WORDS:
             errors.append(f"packageName segment '{seg}' is a reserved word")
-    if not errors and segments[:2] == ["com", "example"]:
+    if errors:
+        return errors
+    if segments[:2] == ["com", "example"]:
         errors.append("packageName must not start with com.example")
+    if segments[0] in PLATFORM_ROOTS:
+        errors.append(
+            f"packageName must not start with '{segments[0]}' "
+            f"(reserved: {', '.join(sorted(PLATFORM_ROOTS))})"
+        )
+    prefix = class_prefix(name)
+    if prefix.startswith(TEMPLATE_PREFIX):
+        errors.append(
+            f"packageName last segment '{segments[-1]}' gives class prefix '{prefix}', "
+            f"which must not start with '{TEMPLATE_PREFIX}' (template token)"
+        )
     return errors
+
+
+def _base_url_ok(url: str) -> bool:
+    if not url or _BASE_URL_FORBIDDEN.search(url):
+        return False
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return False
+    return parts.scheme == "https" and bool(parts.netloc) and url.endswith("/")
 
 
 def validate(prd: Prd) -> list[str]:
@@ -107,6 +144,9 @@ def validate(prd: Prd) -> list[str]:
     if not prd.app_name.strip():
         errors.append("appName is required")
     errors.extend(_package_errors(prd.package_name))
+    lo, hi = MIN_SDK_RANGE
+    if not lo <= prd.min_sdk <= hi:
+        errors.append(f"minSdk must be between {lo} and {hi} (got {prd.min_sdk})")
     if prd.navigation not in NAVIGATIONS:
         errors.append(
             f"navigation '{prd.navigation}' is unknown (expected one of: {', '.join(NAVIGATIONS)})"
@@ -114,6 +154,9 @@ def validate(prd: Prd) -> list[str]:
     for c in prd.ci:
         if c not in CI_OPTIONS:
             errors.append(f"ci '{c}' is unknown (expected: {', '.join(CI_OPTIONS)})")
-    if not prd.base_url.startswith("https://") or not prd.base_url.endswith("/"):
-        errors.append("baseUrl must start with https:// and end with '/' (Retrofit requirement)")
+    if not _base_url_ok(prd.base_url):
+        errors.append(
+            "baseUrl must be an https:// URL with a host that ends with '/' "
+            "and has no spaces, quotes or backslashes (Retrofit requirement)"
+        )
     return errors
