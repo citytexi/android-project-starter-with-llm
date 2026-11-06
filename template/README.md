@@ -1,4 +1,4 @@
-# Starter
+# 프로젝트 개요
 
 Kotlin, Jetpack Compose, Hilt, Room 기반의 멀티 모듈 Android 프로젝트다. 모듈 구조와 개발 규칙은 [AGENTS.md](AGENTS.md)에 있다. LLM 도구로 작업한다면 먼저 읽게 한다.
 
