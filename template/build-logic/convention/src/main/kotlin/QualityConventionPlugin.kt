@@ -4,14 +4,20 @@ import org.gradle.api.Project
 import org.gradle.kotlin.dsl.configure
 import org.jlleitschuh.gradle.ktlint.KtlintExtension
 
+/** Source sets detekt reads: production (main + build types) and every test source set. */
+private val DETEKT_SOURCE_SETS =
+    listOf("main", "debug", "release", "test", "testDebug", "testRelease", "testFixtures", "androidTest", "androidTestDebug")
+
 /**
- * `starter.quality`: ktlint + detekt. The root build applies it to every module.
+ * `starter.quality`: ktlint + detekt + the [ModuleRules] dependency check. The root build applies
+ * it to every module, so the dependency check does not depend on which plugins a module uses.
  * Rules live in `.editorconfig` (ktlint) and `config/detekt/detekt.yml` (detekt).
  */
 class QualityConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) = with(target) {
         pluginManager.apply(libs.plugins.ktlint.get().pluginId)
         pluginManager.apply(libs.plugins.detekt.get().pluginId)
+        enforceModuleRules()
 
         extensions.configure<KtlintExtension> {
             // Skip generated sources (KSP, BuildConfig) under this module's build directory.
@@ -25,14 +31,8 @@ class QualityConventionPlugin : Plugin<Project> {
             buildUponDefaultConfig.set(true)
             parallel.set(true)
             config.setFrom(rootProject.file("config/detekt/detekt.yml"))
-            source.setFrom(
-                "src/main/kotlin",
-                "src/main/java",
-                "src/test/kotlin",
-                "src/test/java",
-                "src/androidTest/kotlin",
-                "src/androidTest/java",
-            )
+            // Directories that do not exist are skipped.
+            source.setFrom(DETEKT_SOURCE_SETS.flatMap { listOf("src/$it/kotlin", "src/$it/java") })
         }
     }
 }

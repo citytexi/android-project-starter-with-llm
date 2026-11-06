@@ -29,16 +29,19 @@ JVM 모듈은 `domain`, `core:common`, `core:testing:jvm`, `konsist`이고 나�
 
 ## 2. 의존 규칙
 
-Gradle `build-logic`의 `ModuleRules`가 `implementation`/`api` 프로젝트 의존을 검사하고 어기면 빌드가 실패한다. test 구성은 검사하지 않는다.
+Gradle `build-logic`의 `ModuleRules`가 모든 모듈의 프로젝트 의존을 검사하고 어기면 빌드가 실패한다. `implementation`/`api`뿐 아니라 직접 만든 구성과 `extendsFrom`으로 이어진 구성, `afterEvaluate`에서 추가한 의존도 검사한다. test 구성(`test`, `androidTest`, `testFixtures` 등 이름에 `test`/`Test` 단어가 있는 구성)은 검사하지 않는다.
 
 | 모듈 | 의존해도 되는 모듈 |
 |---|---|
 | `feature:*` | `domain`, `core:designsystem`, `core:ui`, `core:navigation`, `core:common` |
 | `domain` | `core:common` |
 | `data` | `domain`, `core:network`, `core:database`, `core:datastore`, `core:common` |
-| `core:*` | 다른 `core:*`만. `core:testing:*`은 test/androidTest 구성에서만 쓰고, 자신은 아무 `core:*`에나 의존할 수 있음 |
+| `core:designsystem`, `core:ui`, `core:navigation` | 이 셋과 `core:common`만 |
+| 그 밖의 `core:*` | 다른 `core:*`만. `core:testing:*`은 test/androidTest 구성에서만 쓰고, 자신은 아무 `core:*`에나 의존할 수 있음 |
 | `app` | 전부 |
 | `konsist` | 없음 |
+
+`feature:*` → `core:common`은 설계 문서의 목록에는 없지만 허용한다. `domain`이 `core:common`을 `api`로 노출하고, ViewModel이 dispatcher qualifier를 주입받을 수 있어야 하기 때문이다.
 
 Konsist(`konsist/src/test`)가 import도 검사한다.
 
@@ -133,7 +136,7 @@ interface SecureStore {
 
 ## 8. release 서명
 
-`release`는 아래 4개 값이 모두 있을 때만 해당 키스토어로 서명한다. 하나라도 없으면 debug 키로 서명하고 경고를 출력한다(그 빌드는 업로드하지 않는다). 값은 루트 `local.properties`와 환경변수에서 읽고, 둘 다 있으면 `local.properties`가 우선한다.
+`release`는 아래 4개 값이 모두 있으면 해당 키스토어로 서명한다. 하나도 없으면 debug 키로 서명하고, `assembleRelease`/`bundleRelease`를 실행할 때 경고를 출력한다(그 빌드는 업로드하지 않는다). 일부만 있으면 빠진 키 이름을 알려 주며 빌드가 실패한다. 값은 루트 `local.properties`와 환경변수에서 읽고, 둘 다 있으면 `local.properties`가 우선한다.
 
 | 이름 | 의미 |
 |---|---|

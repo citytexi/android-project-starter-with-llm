@@ -53,6 +53,64 @@ class ModuleRulesTest {
     }
 
     @Test
+    fun `ui cores may depend only on ui cores and common`() {
+        val uiCores = listOf(":core:designsystem", ":core:ui", ":core:navigation")
+        uiCores.forEach { from ->
+            (uiCores + ":core:common").forEach { to -> assertTrue("$from -> $to", ModuleRules.isAllowed(from, to)) }
+            listOf(":core:network", ":core:database", ":core:datastore", ":core:testing:jvm").forEach { to ->
+                assertFalse("$from -> $to", ModuleRules.isAllowed(from, to))
+            }
+        }
+    }
+
+    @Test
+    fun `non ui cores may depend on other cores`() {
+        assertTrue(ModuleRules.isAllowed(":core:datastore", ":core:common"))
+        assertTrue(ModuleRules.isAllowed(":core:network", ":core:ui"))
+    }
+
+    @Test
+    fun `test configurations are exempt`() {
+        listOf(
+            "testImplementation",
+            "testApi",
+            "testCompileOnly",
+            "testRuntimeOnly",
+            "testDebugImplementation",
+            "androidTestImplementation",
+            "androidTestDebugImplementation",
+            "testFixturesImplementation",
+            "testFixturesApi",
+            "debugUnitTestCompileClasspath",
+            "debugAndroidTestRuntimeClasspath",
+            "kspTest",
+            "kspAndroidTest",
+            "kotlinCompilerPluginClasspathTest",
+            "screenshotTestImplementation",
+            "integrationTests",
+        ).forEach { assertTrue(it, ModuleRules.isTestConfiguration(it)) }
+    }
+
+    @Test
+    fun `main and custom configurations are checked`() {
+        listOf(
+            "implementation",
+            "api",
+            "compileOnly",
+            "runtimeOnly",
+            "debugImplementation",
+            "releaseApi",
+            "ksp",
+            "debugCompileClasspath",
+            "releaseRuntimeClasspath",
+            "latestImplementation",
+            "contestApi",
+            "testerImplementation",
+            "extra",
+        ).forEach { assertFalse(it, ModuleRules.isTestConfiguration(it)) }
+    }
+
+    @Test
     fun `core testing modules are only for test configurations`() {
         assertFalse(ModuleRules.isAllowed(":core:datastore", ":core:testing:android"))
         assertTrue(ModuleRules.isAllowed(":core:testing:android", ":core:testing:jvm"))
