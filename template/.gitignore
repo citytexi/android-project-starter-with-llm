@@ -1,7 +1,13 @@
 # Gradle
 .gradle/
 .kotlin/
-build/
+# Build output of the root and of every module depth (app, feature/x, core/testing/x,
+# build-logic/convention). Anchored on purpose: an unanchored `build/` would also hide
+# source packages such as src/main/kotlin/com/build/.
+/build/
+/*/build/
+/*/*/build/
+/*/*/*/build/
 
 # Local configuration (SDK path, signing keys)
 local.properties
@@ -13,8 +19,11 @@ local.properties
 *.iml
 .DS_Store
 
-# Android
-captures/
+# Android (Android Studio captures, anchored like build/ above)
+/captures/
+/*/captures/
+/*/*/captures/
+/*/*/*/captures/
 .externalNativeBuild/
 .cxx/
 *.apk

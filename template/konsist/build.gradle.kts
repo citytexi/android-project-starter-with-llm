@@ -14,7 +14,10 @@ tasks.withType<Test>().configureEach {
         .files(
             root.asFileTree.matching {
                 include("**/src/**/*.kt", "**/*.kts")
-                exclude("**/build/**", "**/.gradle/**")
+                // Module build directories only (root, app, feature/x, core/testing/x, build-logic/x).
+                // A `**/build/**` pattern would also drop source packages such as com/build/.
+                exclude("build/**", "*/build/**", "*/*/build/**", "*/*/*/build/**")
+                exclude("**/.gradle/**", "**/.kotlin/**")
             },
         ).withPathSensitivity(PathSensitivity.RELATIVE)
         .withPropertyName("projectSources")
