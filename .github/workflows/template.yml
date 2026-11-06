@@ -1,0 +1,101 @@
+name: template
+
+# 스펙은 main 을 기준으로 하지만 이 레포의 기본 브랜치는 현재 develop 이다.
+# 그래서 두 브랜치를 대상으로 한 PR 에서 모두 돌린다.
+on:
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: template-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  # actionlint 버전과 설치 스크립트 커밋을 고정한다
+  ACTIONLINT_VERSION: "1.7.7"
+
+jobs:
+  scripts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generator tests
+        run: python3 -m unittest discover -s scripts/tests -v
+
+      - name: ui-diff script tests
+        run: python3 -m unittest discover -s variants/ci/ui-diff/.github/scripts/ui_diff -p 'test_*.py'
+
+      - name: Install actionlint
+        run: |
+          curl -sSfL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
+            | tar -xz -C "$RUNNER_TEMP" actionlint
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
+      # 변형 workflow 의 로컬 composite action 참조(./.github/actions/...)는 생성된 프로젝트 안에서만 풀린다.
+      # actionlint 는 workflow 파일 단위 검사라 이를 문제 삼지 않으므로 변형 원본도 여기서 검사하고,
+      # 생성물 검사는 generate 잡에서 한 번 더 한다.
+      - name: actionlint (this repo and variants)
+        run: |
+          actionlint .github/workflows/*.yml
+          actionlint variants/ci/*/.github/workflows/*.yml
+
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        nav: [ nav2, nav3 ]
+    steps:
+      - uses: actions/checkout@v4
+
+      # 변형의 composite action 은 이 레포의 .github/actions 에 없으므로 같은 단계를 인라인한다
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # ubuntu-latest 에는 Android SDK 가 있고 ANDROID_HOME 이 설정돼 있다.
+      # 라이선스만 수락해 두면 AGP 가 compileSdk 37 플랫폼을 자동으로 내려받는다.
+      - name: Accept Android SDK licenses
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
+      # generate.py 가 생성물에 git init + 첫 커밋을 하므로 신원이 필요하다
+      - name: Set git identity
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Generate project
+        run: python3 scripts/generate.py --prd scripts/fixtures/dev-${{ matrix.nav }}.prd.md
+
+      - name: Verify generated project
+        run: python3 scripts/verify.py build/dev/${{ matrix.nav }}
+
+      - name: Install actionlint
+        run: |
+          curl -sSfL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
+            | tar -xz -C "$RUNNER_TEMP" actionlint
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
+      - name: actionlint (generated workflows)
+        working-directory: build/dev/${{ matrix.nav }}
+        run: actionlint
+
+      - name: Upload test reports
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: reports-${{ matrix.nav }}
+          path: build/dev/${{ matrix.nav }}/**/build/reports/**
+          retention-days: 7
