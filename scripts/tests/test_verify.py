@@ -89,6 +89,8 @@ class MainTest(unittest.TestCase):
         for d in ("proj", "template"):
             write(self.root / d, "settings.gradle.kts", 'include(":app")\n')
             write(self.root / d, "gradle/libs.versions.toml", "x=1\n")
+        for name in ("gradlew", "gradlew.bat"):
+            write(self.root / "proj", name, "exit 0\n")
 
     def run_main(self, project):
         out, err = io.StringIO(), io.StringIO()
@@ -106,6 +108,15 @@ class MainTest(unittest.TestCase):
         code, _, err = self.run_main(self.root / "proj")
         self.assertEqual(code, 4)
         self.assertIn("libs.versions.toml", err)
+
+    def test_missing_wrapper_exits_4(self):
+        (self.root / "proj" / "gradlew.bat").unlink()
+        code, _, err = self.run_main(self.root / "proj")
+        self.assertEqual(code, 4)
+        self.assertIn("error: project: gradlew.bat missing (Gradle wrapper script)", err)
+        (self.root / "proj" / "gradlew").unlink()
+        code, _, err = self.run_main(self.root / "proj")
+        self.assertIn("error: project: gradlew missing", err)
 
     @unittest.skipIf(os.name == "nt", "posix shell script")
     def test_gradle_pass_and_fail(self):

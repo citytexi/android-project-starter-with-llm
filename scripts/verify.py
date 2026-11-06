@@ -57,6 +57,18 @@ def compare_structure(project: Path, template: Path) -> list[str]:
     return msgs
 
 
+WRAPPER_SCRIPTS = ("gradlew", "gradlew.bat")
+
+
+def wrapper_problems(project: Path) -> list[str]:
+    """Missing Gradle wrapper scripts (both are part of the generated structure)."""
+    return [
+        f"project: {name} missing (Gradle wrapper script)"
+        for name in WRAPPER_SCRIPTS
+        if not (project / name).is_file()
+    ]
+
+
 def gradle_command(platform: str, project: Path) -> list[str]:
     name = "gradlew.bat" if platform == "win32" else "gradlew"
     return [str(project / name), "verifyStarter", "--continue"]
@@ -91,7 +103,7 @@ def main(argv=None, repo_root=None) -> int:
     if not project.is_dir():
         print(f"error: project dir not found: {project}", file=sys.stderr)
         return 4
-    problems = compare_structure(project, template)
+    problems = compare_structure(project, template) + wrapper_problems(project)
     if problems:
         for m in problems:
             print(f"error: {m}", file=sys.stderr)
