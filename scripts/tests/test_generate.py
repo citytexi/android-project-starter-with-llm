@@ -134,6 +134,46 @@ class HelpersTest(unittest.TestCase):
             self.assertEqual(generate.find_leftovers(root), [])
 
 
+class SortImportsTest(unittest.TestCase):
+    def test_sort_imports_moves_project_imports_into_lexicographic_position(self):
+        src = (
+            "package p\n\nimport androidx.compose.Foo\nimport io.github.club.devsample.X\n"
+            "import com.github.takahirom.Y\nimport kotlin.test.Z\nimport java.io.File\n\nclass A\n"
+        )
+        want = (
+            "package p\n\nimport androidx.compose.Foo\nimport com.github.takahirom.Y\n"
+            "import io.github.club.devsample.X\nimport java.io.File\nimport kotlin.test.Z\n\nclass A\n"
+        )
+        self.assertEqual(want, generate.sort_kotlin_imports(src))
+
+    def test_sort_imports_ascii_and_backticks(self):
+        src = "import a.b.c\nimport a.b.C\nimport a.b.*\nimport a.b.`when`\nimport a.B.X\nimport a.b.Foo.Bar\nimport a.b.`Foo$Bar`\n"
+        want = "import a.B.X\nimport a.b.*\nimport a.b.C\nimport a.b.`Foo$Bar`\nimport a.b.Foo.Bar\nimport a.b.c\nimport a.b.`when`\n"
+        self.assertEqual(want, generate.sort_kotlin_imports(src))
+
+    def test_sort_imports_aliases_last(self):
+        src = "import z.Z as Y\nimport kotlin.A\nimport a.B as C\nimport java.A\nimport b.B\n"
+        want = "import b.B\nimport java.A\nimport kotlin.A\nimport a.B as C\nimport z.Z as Y\n"
+        self.assertEqual(want, generate.sort_kotlin_imports(src))
+
+    def test_sort_imports_removes_blank_lines_and_duplicates(self):
+        src = "package p\n\nimport b.B\n\nimport a.A\nimport b.B\n\nfun f() {}\n"
+        want = "package p\n\nimport a.A\nimport b.B\n\nfun f() {}\n"
+        self.assertEqual(want, generate.sort_kotlin_imports(src))
+
+    def test_sort_imports_no_imports_unchanged(self):
+        src = "package p\n\nclass A\n"
+        self.assertEqual(src, generate.sort_kotlin_imports(src))
+
+    def test_sort_imports_keeps_rest_of_file_identical(self):
+        src = "// header\r\npackage p\r\n\r\nimport b.B\r\nimport a.A\r\n\r\n/** import x.Y */\r\nclass A  \r\n"
+        want = "// header\r\npackage p\r\n\r\nimport a.A\r\nimport b.B\r\n\r\n/** import x.Y */\r\nclass A  \r\n"
+        self.assertEqual(want, generate.sort_kotlin_imports(src))
+
+    def test_sort_imports_without_trailing_newline(self):
+        self.assertEqual("import a.A\nimport b.B", generate.sort_kotlin_imports("import b.B\nimport a.A"))
+
+
 class GenerateTest(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
@@ -161,6 +201,16 @@ class GenerateTest(unittest.TestCase):
         props = (self.out / "gradle.properties").read_text()
         self.assertIn("starter.minSdk=26", props)
         self.assertIn("starter.baseUrl=https://a.com/", props)
+
+    def test_generate_sorts_imports_in_output(self):
+        src = self.repo / "template/app/src/main/kotlin/com/example/starter/Imp.kt"
+        src.write_text(
+            "package com.example.starter\n\nimport com.github.X\nimport com.example.starter.Y\n\nclass StarterImp\n",
+            encoding="utf-8",
+        )
+        self.gen(package_name="org.zeta.app")
+        out = (self.out / "app/src/main/kotlin/org/zeta/app/Imp.kt").read_text(encoding="utf-8")
+        self.assertIn("import com.github.X\nimport org.zeta.app.Y\n", out)
 
     def test_gradle_properties_replaced_and_missing_ok(self):
         self.gen(min_sdk=30, base_url="https://b.io/api/")

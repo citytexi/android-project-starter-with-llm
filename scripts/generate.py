@@ -157,6 +157,64 @@ def _replace_text(root: Path, prd: Prd, prefix: str) -> None:
             p.write_text(new, encoding="utf-8", newline="")
 
 
+_IMPORT_LINE_RE = re.compile(r"^import\s+(\S.*?)\s*$")
+
+
+def _import_key(line: str) -> tuple[int, str, str]:
+    """Sort key matching ktlint's default layout `*,java.**,javax.**,kotlin.**,^`.
+
+    ktlint compares the whole import path as a plain string (so `$` < `.` < `*` < A < a),
+    with backticks removed. Verified against ktlintFormat output.
+    """
+    body = _IMPORT_LINE_RE.match(line.strip()).group(1).split("//")[0].strip()
+    path, sep, alias = body.partition(" as ")
+    path = path.strip().replace("`", "")
+    if sep:
+        return (4, path, alias.strip().replace("`", ""))
+    for group, prefix in ((1, "java."), (2, "javax."), (3, "kotlin.")):
+        if path.startswith(prefix):
+            return (group, path, "")
+    return (0, path, "")
+
+
+def sort_kotlin_imports(text: str) -> str:
+    """Rewrite the import block as one contiguous, ktlint-ordered, de-duplicated block."""
+    lines = text.splitlines(keepends=True)
+    first = next((i for i, ln in enumerate(lines) if _IMPORT_LINE_RE.match(ln.strip())), None)
+    if first is None:
+        return text
+    last = first
+    for i in range(first, len(lines)):
+        stripped = lines[i].strip()
+        if _IMPORT_LINE_RE.match(stripped):
+            last = i
+        elif stripped:
+            break
+    block = [ln for ln in lines[first : last + 1] if ln.strip()]
+    nl = "\r\n" if lines[first].endswith("\r\n") else "\n"
+    seen: set[str] = set()
+    unique = []
+    for ln in block:
+        norm = " ".join(ln.split())
+        if norm not in seen:
+            seen.add(norm)
+            unique.append(ln.strip())
+    unique.sort(key=_import_key)
+    tail = lines[last][len(lines[last].rstrip("\r\n")) :]
+    new_block = nl.join(unique) + tail
+    return "".join(lines[:first]) + new_block + "".join(lines[last + 1 :])
+
+
+def _sort_imports_in_tree(root: Path) -> None:
+    for p in _iter_files(root):
+        if p.suffix.lower() not in (".kt", ".kts"):
+            continue
+        text = p.read_text(encoding="utf-8")
+        new = sort_kotlin_imports(text)
+        if new != text:
+            p.write_text(new, encoding="utf-8", newline="")
+
+
 def _git_init(out: Path) -> None:
     subprocess.run(["git", "init", "-b", "main"], cwd=out, check=True)
     subprocess.run(["git", "add", "-A"], cwd=out, check=True)
@@ -182,6 +240,7 @@ def generate(prd: Prd, repo_root: Path, overwrite: bool, git: bool = True) -> Pa
     prefix = class_prefix(prd.package_name)
     _rename_package_dirs(out, prd.package_name, prefix)
     _replace_text(out, prd, prefix)
+    _sort_imports_in_tree(out)
     leftovers = find_leftovers(out)
     if leftovers:
         raise LeftoverTokensError(leftovers)

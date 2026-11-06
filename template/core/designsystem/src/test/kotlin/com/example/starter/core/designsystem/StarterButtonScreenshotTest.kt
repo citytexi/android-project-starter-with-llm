@@ -3,9 +3,9 @@ package com.example.starter.core.designsystem
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
-import com.github.takahirom.roborazzi.captureRoboImage
 import com.example.starter.core.designsystem.component.StarterButton
 import com.example.starter.core.designsystem.theme.StarterTheme
+import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
