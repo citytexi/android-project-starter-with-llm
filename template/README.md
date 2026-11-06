@@ -26,6 +26,8 @@ Windows에서는 `gradlew.bat`을 쓴다. Android Studio에서는 프로젝트�
 
 모든 모듈의 빌드, 단위 테스트, 아키텍처 규칙(Konsist), detekt, ktlint, 스크린샷 렌더링을 한 번에 실행한다. PR을 올리기 전에 통과시킨다.
 
+작업 중 빠르게 확인할 때는 `./gradlew testStarter`를 쓴다. 단위 테스트, 계측 테스트 컴파일, Konsist, `build-logic`의 `ModuleRulesTest`, detekt, ktlint만 돌린다(release 빌드와 스크린샷 제외). CI의 `test` workflow가 이것을 실행한다.
+
 ## release 서명
 
 `release` 빌드는 아래 값이 모두 있을 때만 키스토어로 서명한다. 하나라도 없으면 debug 키로 서명하고 경고를 출력한다. 그 빌드는 배포하지 않는다. 값은 루트 `local.properties` 또는 환경변수로 준다.

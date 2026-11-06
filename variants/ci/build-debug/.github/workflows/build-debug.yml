@@ -18,6 +18,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       # 필수 체크로 쓸 수 있게 paths-ignore 대신 스텝만 건너뛴다 (workflow_dispatch 는 항상 빌드한다)
       - id: changes

@@ -14,21 +14,26 @@ plugins {
     id("starter.quality") apply false
 }
 
-// The single gate that scripts/verify.py, CI and AGENTS.md call.
+// Fast checks for every module: unit tests, instrumented-test compile, Konsist, detekt and
+// ktlint. No release build and no screenshot recording. The `test` CI workflow runs this.
+val testStarter by tasks.registering {
+    group = "verification"
+    description = "Runs unit tests, compiles instrumented tests and lints every module."
+    // ModuleRulesTest lives in the included build-logic build, which subprojects {} does not reach.
+    dependsOn(gradle.includedBuild("build-logic").task(":convention:test"))
+}
+
+// The single gate that scripts/verify.py and AGENTS.md call: testStarter plus builds and screenshots.
 val verifyStarter by tasks.registering {
     group = "verification"
     description = "Builds, tests, lints and renders screenshots for every module."
+    dependsOn(testStarter)
 }
 
-val androidGateTasks = setOf(
-    "assembleDebug",
-    "assembleRelease",
-    "testDebugUnitTest",
-    "assembleDebugAndroidTest",
-    "recordRoborazziDebug",
-)
-val jvmGateTasks = setOf("test")
-val qualityGateTasks = setOf("detekt", "ktlintCheck")
+val androidTestTasks = setOf("testDebugUnitTest", "assembleDebugAndroidTest")
+val androidBuildTasks = setOf("assembleDebug", "assembleRelease", "recordRoborazziDebug")
+val jvmTestTasks = setOf("test")
+val qualityTasks = setOf("detekt", "ktlintCheck")
 
 subprojects {
     // Intermediate projects such as :core have no build file and nothing to check.
@@ -38,14 +43,15 @@ subprojects {
     // Matched by name when the task graph is built, so a module that lacks a task
     // (no androidTest sources, no screenshot plugin) is simply skipped.
     val module = this
+    fun matching(android: Set<String>, jvm: Set<String>, any: Set<String>) =
+        module.tasks.matching { task ->
+            val isAndroid = module.pluginManager.hasPlugin("com.android.base")
+            task.name in any || task.name in (if (isAndroid) android else jvm)
+        }
+    testStarter.configure {
+        dependsOn(matching(android = androidTestTasks, jvm = jvmTestTasks, any = qualityTasks))
+    }
     verifyStarter.configure {
-        dependsOn(
-            module.tasks.matching { task ->
-                val isAndroid = module.pluginManager.hasPlugin("com.android.base")
-                task.name in qualityGateTasks ||
-                    (isAndroid && task.name in androidGateTasks) ||
-                    (!isAndroid && task.name in jvmGateTasks)
-            },
-        )
+        dependsOn(matching(android = androidBuildTasks, jvm = emptySet(), any = emptySet()))
     }
 }

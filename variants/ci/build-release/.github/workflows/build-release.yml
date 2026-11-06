@@ -28,6 +28,8 @@ jobs:
       KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - id: changes
         if: github.event_name == 'pull_request'

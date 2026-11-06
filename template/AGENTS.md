@@ -79,7 +79,7 @@ nav 파일 이름은 `StarterRoutes`/`StarterNavKeys`처럼 접두사를 쓴다.
    - `feature/<name>/.../navigation/<Name>Navigation.kt`에 `fun EntryProviderScope<NavKey>.<name>Entry() { entry<<Name>Key> { <Name>Route() } }`를 만든다.
    - `app/.../navigation/StarterNavHost.kt`의 `entryProvider { }` 블록에서 `<name>Entry()`를 호출한다.
 
-5. 테스트를 쓴다(ViewModel 단위 테스트, 화면 스크린샷 테스트는 `SampleViewModelTest`, `SampleScreenScreenshotTest` 참고). `./gradlew verifyStarter`로 마무리한다.
+5. 테스트를 쓴다(ViewModel 단위 테스트, 화면 스크린샷 테스트는 `SampleViewModelTest`, `SampleScreenScreenshotTest` 참고). 작업 중에는 `./gradlew testStarter`, 마무리는 `./gradlew verifyStarter`로 한다.
 
 ## 5. 검증
 
@@ -89,11 +89,16 @@ nav 파일 이름은 `StarterRoutes`/`StarterNavKeys`처럼 접두사를 쓴다.
 ./gradlew verifyStarter
 ```
 
-모든 모듈에 대해 아래를 실행한다. 모듈에 없는 task는 건너뛴다.
+task는 두 개다. 모듈에 없는 task는 건너뛴다.
 
-- Android: `assembleDebug`, `assembleRelease`, `testDebugUnitTest`, `assembleDebugAndroidTest`(컴파일만), `recordRoborazziDebug`
-- JVM: `test` (`:konsist` 포함, 아키텍처 규칙)
-- 전체: `detekt`, `ktlintCheck`
+- `testStarter`: 빠른 검사. CI의 `test` workflow가 이것을 돌린다.
+  - Android: `testDebugUnitTest`, `assembleDebugAndroidTest`(컴파일만)
+  - JVM: `test` (`:konsist` 포함, 아키텍처 규칙)
+  - `build-logic`: `:convention:test` (`ModuleRulesTest`)
+  - 전체: `detekt`, `ktlintCheck`
+- `verifyStarter`: 완료 게이트. `testStarter` 전부에 더해 Android 모듈의 `assembleDebug`, `assembleRelease`, `recordRoborazziDebug`를 실행한다.
+
+작업 중에는 `./gradlew testStarter`로 자주 확인하고, 끝내기 전에는 `verifyStarter`를 돌린다.
 
 포맷 오류는 `./gradlew ktlintFormat`으로 고친다. 기준 스크린샷은 커밋하지 않는다.
 
@@ -141,6 +146,6 @@ interface SecureStore {
 
 샘플 데이터는 `sample/items` 경로에서 가져온다.
 
-- base URL: 루트 `gradle.properties`의 `starter.baseUrl`. `core:network`가 `BuildConfig.BASE_URL`로 읽는다. 값은 `/`로 끝나야 한다. 기본값 `https://example.invalid/`는 실제 서버가 아니다.
+- base URL: 루트 `gradle.properties`의 `starter.baseUrl`. `core:network`가 `BuildConfig.BASE_URL`로 읽는다. 값은 `/`로 끝나야 한다. 처음에는 PRD에서 넣은 값이 들어 있다. 실제 서버 주소가 아니면 바꾼다.
 - 경로: `core/network/.../SampleApi.kt`의 `@GET("sample/items")`.
 - 응답 모양이 바뀌면 DTO, Room entity, `SampleRepositoryImpl`의 매핑, `SampleItem`을 순서대로 맞추고 관련 테스트를 고친다.
