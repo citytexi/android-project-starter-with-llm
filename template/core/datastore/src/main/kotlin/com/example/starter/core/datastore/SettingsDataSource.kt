@@ -10,13 +10,12 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import java.io.IOException
 import javax.inject.Inject
-import javax.inject.Named
 
 /** Plain (unencrypted) app settings on the `settings` Preferences DataStore. */
 class SettingsDataSource
     @Inject
     constructor(
-        @param:Named("settings") private val dataStore: DataStore<Preferences>,
+        @param:SettingsPreferences private val dataStore: DataStore<Preferences>,
     ) {
         // An unreadable file reads as empty settings instead of crashing every collector.
         val lastRefreshedAt: Flow<Long?> =

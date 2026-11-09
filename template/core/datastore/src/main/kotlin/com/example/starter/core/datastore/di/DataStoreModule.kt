@@ -9,7 +9,9 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.preferencesDataStoreFile
 import com.example.starter.core.datastore.DataStoreSecureStore
 import com.example.starter.core.datastore.KeystoreStringCipher
+import com.example.starter.core.datastore.SecurePreferences
 import com.example.starter.core.datastore.SecureStore
+import com.example.starter.core.datastore.SettingsPreferences
 import com.example.starter.core.datastore.StringCipher
 import dagger.Binds
 import dagger.Module
@@ -17,14 +19,13 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import javax.inject.Named
 import javax.inject.Singleton
 
 /**
  * Binds the Keystore cipher and secure store, and provides both Preferences DataStores.
  *
  * Both DataStores replace a corrupt file with empty preferences instead of failing every read.
- * The `CoroutineDispatcher` for [DataStoreSecureStore] is bound in `data`.
+ * The IO `CoroutineDispatcher` for [DataStoreSecureStore] comes from `DispatcherModule` in `core:common`.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -42,7 +43,7 @@ abstract class DataStoreModule {
 
         @Provides
         @Singleton
-        @Named("secure")
+        @SecurePreferences
         fun provideSecureDataStore(
             @ApplicationContext context: Context,
         ): DataStore<Preferences> =
@@ -54,7 +55,7 @@ abstract class DataStoreModule {
 
         @Provides
         @Singleton
-        @Named("settings")
+        @SettingsPreferences
         fun provideSettingsDataStore(
             @ApplicationContext context: Context,
         ): DataStore<Preferences> =

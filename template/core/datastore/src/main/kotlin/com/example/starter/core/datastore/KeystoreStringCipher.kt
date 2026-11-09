@@ -9,6 +9,7 @@ import java.security.GeneralSecurityException
 import java.security.KeyStore
 import java.security.ProviderException
 import java.security.UnrecoverableKeyException
+import javax.crypto.AEADBadTagException
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -20,9 +21,13 @@ import javax.inject.Singleton
  * [StringCipher] backed by an AES-256/GCM/NoPadding key in AndroidKeyStore (alias [KEY_ALIAS]).
  *
  * Every [encrypt] call uses a fresh random IV chosen by the cipher. The output is
- * Base64(IV || ciphertext+tag) with a 128-bit tag. [decrypt] returns `null` on any failure.
- * When the key is permanently invalidated or unrecoverable, the alias is deleted so the next
- * [encrypt] creates a new key.
+ * Base64(IV || ciphertext+tag) with a 128-bit tag. [decrypt] never throws:
+ *
+ * - [DecryptResult.Unreadable] (the caller deletes the value): bad tag, malformed input, no key,
+ *   or a permanently invalidated or unrecoverable key. In the last two cases the alias is also
+ *   deleted so the next [encrypt] creates a new key.
+ * - [DecryptResult.Unavailable] (the caller keeps the value): `KeyStoreException`,
+ *   `ProviderException`, I/O and other key store errors that may pass on a later try.
  *
  * Robolectric has no AndroidKeyStore, so this class is not unit tested. JVM tests use
  * `FakeStringCipher` from `core:testing:android`.
@@ -42,25 +47,30 @@ class KeystoreStringCipher
             return Base64.encodeToString(iv + ciphertext, Base64.NO_WRAP)
         }
 
-        override fun decrypt(encoded: String): String? =
+        // Order matters: the specific GeneralSecurityException subclasses come before the general one.
+        override fun decrypt(encoded: String): DecryptResult =
             try {
                 decryptOrThrow(encoded)
             } catch (_: KeyPermanentlyInvalidatedException) {
                 deleteKey()
-                null
+                DecryptResult.Unreadable
             } catch (_: UnrecoverableKeyException) {
                 deleteKey()
-                null
-            } catch (_: GeneralSecurityException) {
-                // Includes AEADBadTagException: the value is corrupt, the key is still fine.
-                null
+                DecryptResult.Unreadable
+            } catch (_: AEADBadTagException) {
+                // The value is corrupt or was written with an older key. The key itself is fine.
+                DecryptResult.Unreadable
             } catch (_: IllegalArgumentException) {
                 // Malformed Base64.
-                null
+                DecryptResult.Unreadable
+            } catch (_: GeneralSecurityException) {
+                // KeyStoreException and the like: the key store may work on the next call.
+                DecryptResult.Unavailable
             } catch (_: IOException) {
-                null
+                DecryptResult.Unavailable
             } catch (_: ProviderException) {
-                null
+                // Keystore daemon or binder failure.
+                DecryptResult.Unavailable
             }
 
         /** Returns `null` after deleting a broken key (invalidated or unrecoverable entry). */
@@ -75,13 +85,15 @@ class KeystoreStringCipher
                 null
             }
 
-        private fun decryptOrThrow(encoded: String): String? {
+        private fun decryptOrThrow(encoded: String): DecryptResult {
             val bytes = Base64.decode(encoded, Base64.NO_WRAP)
+            // Too short for IV plus tag, or no key (deleted, or app data restored without it).
             val key = existingKey()
-            if (bytes.size < IV_SIZE_BYTES + TAG_SIZE_BITS / Byte.SIZE_BITS || key == null) return null
+            if (bytes.size < IV_SIZE_BYTES + TAG_SIZE_BITS / Byte.SIZE_BITS || key == null) return DecryptResult.Unreadable
             val cipher = Cipher.getInstance(TRANSFORMATION)
             cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(TAG_SIZE_BITS, bytes, 0, IV_SIZE_BYTES))
-            return String(cipher.doFinal(bytes, IV_SIZE_BYTES, bytes.size - IV_SIZE_BYTES), Charsets.UTF_8)
+            val plain = cipher.doFinal(bytes, IV_SIZE_BYTES, bytes.size - IV_SIZE_BYTES)
+            return DecryptResult.Success(String(plain, Charsets.UTF_8))
         }
 
         private fun initEncrypt(key: SecretKey): Cipher {
@@ -114,6 +126,14 @@ class KeystoreStringCipher
                 .generateKey()
         }
 
+        /**
+         * Known race, accepted: [lock] guards create and delete, not whole encrypt/decrypt calls.
+         * If one thread deletes the key here while another has just encrypted with a fresh key,
+         * that new value becomes unreadable. Deletion only follows
+         * [KeyPermanentlyInvalidatedException] or [UnrecoverableKeyException]. The key is not
+         * auth-bound (no `setUserAuthenticationRequired`), so invalidation by lock-screen or
+         * biometric changes does not apply and the race is practically unreachable.
+         */
         private fun deleteKey() {
             synchronized(lock) {
                 try {
