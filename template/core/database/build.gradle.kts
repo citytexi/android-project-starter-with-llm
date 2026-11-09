@@ -6,6 +6,16 @@ plugins {
 
 android {
     namespace = "com.example.starter.core.database"
+    // Robolectric only loads unit-test assets with this on.
+    testOptions.unitTests.isIncludeAndroidResources = true
+}
+
+// StarterDatabaseMigrationTest (Robolectric) reads the exported schemas as unit-test assets.
+// The Room plugin only adds them to androidTest assets.
+androidComponents {
+    onVariants { variant ->
+        variant.hostTests.values.forEach { it.sources.assets?.addStaticSourceDirectory("schemas") }
+    }
 }
 
 room {
@@ -20,4 +30,5 @@ dependencies {
 
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.room.testing)
 }
