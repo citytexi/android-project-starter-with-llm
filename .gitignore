@@ -1,0 +1,5 @@
+build/
+__pycache__/
+
+# 동아리원이 채운 PRD (실수로 커밋하지 않도록)
+/PRD.md
