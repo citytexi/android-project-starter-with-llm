@@ -1,6 +1,6 @@
 # PRD
 
-이 파일을 복사해 값을 채운 뒤 `python3 scripts/generate.py --prd <파일>`로 프로젝트를 생성합니다.
+이 파일은 고치지 말고 `PRD.md`로 복사해 값을 채운 뒤 `python3 scripts/generate.py --prd <파일>`로 프로젝트를 생성합니다.
 아래 첫 번째 `properties` 블록만 읽습니다. 형식은 `key = value`이고 `#`으로 시작하는 줄은 주석입니다. 줄 끝 `#` 주석(`minSdk = 26 # 기본값`)은 지원하지 않습니다. `#`부터 끝까지 값으로 읽습니다. 아래에 없는 키, 같은 키를 두 번 쓴 줄, `=`가 없는 줄은 줄 번호와 함께 오류가 납니다.
 
 ## 키 설명
@@ -11,7 +11,7 @@
 - `minSdk`: 최소 SDK. 23 이상 36 이하의 정수(숫자만). 기본값 26.
 - `baseUrl`: API 기본 주소. 호스트가 있는 `https://` 주소이고 `/`로 끝나야 합니다(Retrofit 요구사항). 포트를 쓰면 올바른 숫자여야 합니다. ASCII 문자만 쓰고, 공백, 따옴표(`"`, `'`), 역슬래시(`\`), `@`, `?`, `#`은 쓸 수 없습니다.
 - `navigation`: `nav2`(Navigation Compose) 또는 `nav3`(Navigation 3). 기본값 `nav3`.
-- `ci`: 생성할 GitHub Actions를 쉼표로 구분해 적습니다. `build-debug`, `build-release`, `test`, `ui-diff` 중에서 고릅니다. 비우면 `.github/`를 만들지 않습니다.
+- `ci`: 생성할 GitHub Actions를 쉼표로 구분해 적습니다. `build-debug`, `build-release`, `test`, `ui-diff` 중에서 고릅니다. 비우면 `.github/`를 만들지 않습니다. `build-release`는 수동 실행 전용이고, `test`는 `testStarter`를 실행합니다.
 - `outputDir`: 생성 위치. 이 파일이 있는 디렉터리 기준 상대 경로이거나 절대 경로입니다. `~`는 홈 디렉터리로 바꿉니다. 생략하면 `../<패키지명 마지막 세그먼트>`입니다. 스타터 레포 안(`build/` 아래 제외)은 쓸 수 없습니다.
 
 ## 설정

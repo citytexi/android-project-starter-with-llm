@@ -9,9 +9,11 @@ PRD 한 장을 채우면 LLM 도구(Claude Code, Cursor, Codex, Gemini CLI 등)�
 - Python 3.10 이상
 - git
 
+Windows에서는 `python3` 대신 `python` 또는 `py -3`을 쓰고, 생성물에서는 `gradlew.bat`을 씁니다.
+
 ## 사용법
 
-1. `PRD.template.md`를 `PRD.md`로 복사해서 값을 채웁니다. `packageName`은 비워 둬도 됩니다. LLM이 앱 이름으로 후보를 제안하면 고르면 됩니다.
+1. `PRD.template.md`를 `PRD.md`로 복사해서 값을 채웁니다. `packageName`은 비워 둬도 됩니다. LLM이 앱 이름으로 후보를 제안하면 고르면 됩니다. 클래스 이름 접두사는 `classPrefix`로 정할 수 있고, 비우면 패키지명 마지막 세그먼트로 만듭니다(충돌할 때만 물어봅니다).
 
    ```bash
    cp PRD.template.md PRD.md
@@ -23,7 +25,7 @@ PRD 한 장을 채우면 LLM 도구(Claude Code, Cursor, Codex, Gemini CLI 등)�
    > AGENTS.md대로 PRD.md로 프로젝트 만들어줘
 
    Claude Code에서는 `/android-init`을 쓰면 됩니다. 다른 PRD 파일은 `/android-init 경로`로 지정합니다.
-3. 결과를 확인합니다. LLM이 생성 경로, 선택한 옵션, 다음에 할 일을 알려 줍니다. Android Studio에서 생성된 프로젝트를 열고 그 안의 `AGENTS.md`를 읽어 보세요. 생성물에는 첫 커밋이 이미 있습니다. GitHub 연결은 직접 합니다(`git remote add origin <URL>`, `git push -u origin main`).
+3. 결과를 확인합니다. LLM이 생성 경로, 선택한 옵션, 다음에 할 일을 알려 줍니다. Android Studio에서 생성된 프로젝트를 열고 그 안의 `AGENTS.md`를 읽어 보세요. git 사용자 정보(`user.name`, `user.email`)가 설정돼 있으면 생성물에 첫 커밋이 이미 있습니다(없으면 경고만 나오고 프로젝트는 그대로 만들어집니다). GitHub 연결은 직접 합니다(`git remote add origin <URL>`, `git push -u origin main`).
 
 검증이 실패하면 LLM은 생성물을 고치지 않고 멈춰서 보고합니다. 템플릿 버그일 가능성이 높으니 이 레포에 이슈로 알려 주세요.
 
@@ -50,8 +52,8 @@ PRD의 `navigation`과 `ci`로 고릅니다.
 | `navigation` | `nav2` | Navigation Compose |
 | `navigation` | `nav3` (기본) | Navigation 3 |
 | `ci` | `build-debug` | debug 빌드 workflow |
-| `ci` | `build-release` | release 빌드 workflow |
-| `ci` | `test` | 테스트 workflow |
+| `ci` | `build-release` | release 빌드 workflow (수동 실행, `release` environment) |
+| `ci` | `test` | 테스트 workflow (`testStarter` 실행) |
 | `ci` | `ui-diff` | UI 스크린샷 diff workflow |
 
 `ci`는 쉼표로 여러 개를 고르거나 비울 수 있습니다. 비우면 `.github/`가 만들어지지 않습니다. 비공개 저장소에서는 GitHub Actions 실행 시간이 유료로 과금될 수 있으니 필요한 것만 켜세요.
@@ -71,7 +73,7 @@ python3 scripts/generate.py --prd scripts/fixtures/dev-nav3.prd.md --overwrite
 python3 scripts/verify.py build/dev/nav3
 ```
 
-생성물 루트에는 `.starter-generated` 표식이 생기고, `--overwrite`는 이 표식이 있는 디렉터리만 지웁니다. 레포 안에서는 `build/` 아래에만 생성할 수 있습니다. 생성된 프로젝트에서 빠르게 확인할 때는 `./gradlew testStarter`(유닛 테스트, 계측 테스트 컴파일, Konsist, detekt, ktlint), 마무리 게이트는 `./gradlew verifyStarter`(여기에 debug/release 빌드와 스크린샷 기록 추가)입니다.
+생성물 루트에는 `.starter-generated` 표식이 생기고, `--overwrite`는 이 표식이 있는 디렉터리만 지웁니다. 레포 안에서는 `build/` 아래에만 생성할 수 있습니다. 생성된 프로젝트에서 빠르게 확인할 때는 `./gradlew testStarter`(유닛 테스트, 계측 테스트 컴파일, Konsist, `build-logic`의 `ModuleRulesTest`, detekt, ktlint), 마무리 게이트는 `./gradlew verifyStarter`(여기에 debug/release 빌드와 스크린샷 기록 추가)입니다.
 
 스크립트 단위 테스트는 다음과 같이 실행합니다.
 

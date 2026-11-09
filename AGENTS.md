@@ -12,7 +12,7 @@
 - `variants/`
 - `scripts/`
 
-생성된 프로젝트(`outputDir`)도 수정하지 않습니다(5단계 참고). 당신이 쓸 수 있는 파일은 사용자가 고른 PRD 파일(`packageName` 등 값 입력)뿐입니다.
+생성된 프로젝트(`outputDir`)도 수정하지 않습니다(5단계 참고). 당신이 쓸 수 있는 파일은 사용자가 고른 PRD 파일(`packageName` 등 값 입력)뿐입니다. `PRD.template.md`는 읽기만 하고 고치지 않습니다(값은 `PRD.md`로 복사해 채웁니다).
 
 ## 실행 환경
 
@@ -71,7 +71,7 @@ python3 scripts/generate.py --prd <PRD 경로>
   3. 그 질문에 대한 명시적인 yes를 받습니다.
 
   `--overwrite`를 스스로 판단해서 붙이지 않고, 실패 후 재시도할 때도 붙이지 않습니다. 사용자가 거절하면 PRD의 `outputDir`을 바꾸자고 제안합니다.
-- 성공하면 `generated: <경로>`를 출력합니다. git이 설정돼 있으면 그 경로에서 `git init`과 첫 커밋까지 만듭니다. git이 없거나 `user.name`/`user.email`이 없으면 `warning: git init/commit failed ...`를 stderr에 내고 프로젝트는 그대로 생성한 채 종료 코드 0으로 끝납니다. 이것은 로컬 환경 문제이니 git 설정 방법만 안내합니다(`git config --global user.name "<이름>"`, `git config --global user.email "<이메일>"`, 이어서 경고가 안내한 `git init -b main && git add -A && git commit ...`).
+- 성공하면 `generated: <경로>`를 출력합니다. 출력에 `generated:` 줄이 여러 개면 마지막 줄의 경로를 씁니다. git이 설정돼 있으면 그 경로에서 `git init`과 첫 커밋까지 만듭니다. git이 없거나 `user.name`/`user.email`이 없으면 `warning: git init/commit failed ...`를 stderr에 내고 프로젝트는 그대로 생성한 채 종료 코드 0으로 끝납니다. 이것은 로컬 환경 문제이니 git 설정 방법만 안내합니다(`git config --global user.name "<이름>"`, `git config --global user.email "<이메일>"`, 이어서 경고가 안내한 `git init -b main && git add -A && git commit ...`).
 
 ### 4. 검증
 
@@ -83,7 +83,7 @@ python3 scripts/verify.py <outputDir>
 
 ### 5. 실패하면 생성물을 고치지 말고 멈춘다
 
-**종료 코드 3, 4, 5(그리고 아래 표에 없는 코드나 traceback)는 생성된 프로젝트를 수정하지 말고 멈춰서 사용자에게 보고합니다.** 종료 코드 2는 예외입니다(`error: template changed: ...`만 빼고). 사용자 입력(PRD 값, 이미 있는 출력 디렉터리)을 바로잡는 문제이므로, 사용자의 답에 따라 **PRD 파일만** 고치고 3단계를 다시 실행할 수 있습니다. 재시도로 덮어쓰거나, 코드를 패치해서 통과시키거나, 설정을 바꿔 우회하는 일을 하지 않습니다.
+**종료 코드 3, 4, 5(그리고 아래 표에 없는 코드나 traceback. 잡히지 않은 예외는 1)는 생성된 프로젝트를 수정하지 말고 멈춰서 사용자에게 보고합니다.** 종료 코드 2는 예외입니다(`error: template changed: ...`만 빼고). 사용자 입력(PRD 값, 이미 있는 출력 디렉터리)을 바로잡는 문제이므로, 사용자의 답에 따라 **PRD 파일만** 고치고 3단계를 다시 실행할 수 있습니다. `usage:`가 나오는 종료 코드 2는 명령을 잘못 쓴 것이니 명령만 고쳐 다시 실행합니다. 재시도로 덮어쓰거나, 코드를 패치해서 통과시키거나, 설정을 바꿔 우회하는 일을 하지 않습니다.
 
 보고에 넣을 것은 다음과 같습니다.
 
@@ -93,14 +93,15 @@ python3 scripts/verify.py <outputDir>
 
 이유는 이렇습니다. 손대지 않은 생성물에서 검증이 실패했다면 템플릿 버그입니다. 수정은 이 레포의 `template/`(또는 `variants/`, `scripts/`)에서 해야 하고, 그 일은 템플릿 관리자가 합니다. LLM이 생성물을 제각각 고치면 도구마다 결과가 달라져서 이 레포가 존재하는 이유가 없어집니다.
 
-**유일한 예외는 로컬 환경 문제입니다.** JDK 21이 없거나, Android SDK 경로를 못 찾는 경우(`ANDROID_HOME` 환경 변수, 생성물의 `local.properties`의 `sdk.dir`)입니다. 이 경우에는 어떻게 설치하고 설정하면 되는지 안내만 하고, 사용자가 환경을 고친 뒤 4단계를 다시 실행하게 합니다. 이때도 생성물의 소스는 고치지 않습니다.
+**유일한 예외는 로컬 환경 문제입니다.** JDK 21이 없거나, Android SDK 경로를 못 찾는 경우입니다. 이 경우에는 어떻게 설치하고 설정하면 되는지 안내만 하고, 사용자가 환경을 고친 뒤 4단계를 다시 실행하게 합니다. SDK 경로는 사용자가 `ANDROID_HOME` 환경 변수를 설정하거나 생성물 루트에 `local.properties`(`sdk.dir=<SDK 경로>`)를 직접 만들어 알려 줍니다. 당신이 그 파일을 대신 만들거나 생성물의 소스를 고치지 않습니다.
 
 ### 6. 요약
 
 성공하면 사용자에게 다음을 알려줍니다.
 
 - 생성된 프로젝트의 경로
-- 선택된 옵션: `navigation`(nav2/nav3)과 `ci`(생성된 workflow 목록, 없으면 없음)
+- 선택된 옵션: `navigation`(nav2/nav3)과 `ci`(생성된 workflow 목록, 없으면 없음), `classPrefix`(PRD에 적었거나 패키지명에서 만들어진 값)
+- 생성된 모듈 목록(`settings.gradle.kts`의 `include(...)` 기준: `app`, `core:*`, `data`, `domain`, `feature:sample`, `konsist`)
 - 다음에 할 일
   1. Android Studio에서 생성된 프로젝트를 엽니다.
   2. 생성된 프로젝트의 `AGENTS.md`를 읽습니다(이후 작업 지침).
@@ -126,7 +127,8 @@ python3 scripts/verify.py <outputDir>
 | `verify.py` | 0 | 구조 비교와 `verifyStarter` 통과 (`verify: ok`) | 6단계 요약으로 진행합니다. |
 | `verify.py` | 4 | 생성물 구조가 템플릿과 다름 (모듈 목록, `libs.versions.toml`, `gradlew`/`gradlew.bat` 없음) 또는 프로젝트 디렉터리 없음 | 결정성이 깨진 것입니다. 오류 메시지를 전달하고 멈춥니다. 디렉터리가 없다는 오류면 경로를 확인합니다. |
 | `verify.py` | 5 | Gradle 실패 또는 Gradle을 실행하지 못함 | 로그 마지막 80줄과 원인 추정을 전달합니다. JDK 21 또는 Android SDK 경로 문제면 환경 설정을 안내하고, 그 외에는 템플릿 버그로 보고 멈춥니다. |
-| 둘 다 | 그 외 (argparse의 1 등), traceback | 예상 밖 실패 | 멈추고 출력 전문과 원인 추정을 보고합니다. |
+| 둘 다 | 2 (stderr에 `usage:`) | argparse 명령행 오류(`--prd` 빠짐 등). PRD 문제가 아니라 명령을 잘못 쓴 것 | 명령을 고쳐 다시 실행합니다. PRD는 건드리지 않습니다. |
+| 둘 다 | 1, 그 외 코드, traceback | 예상 밖 실패(잡히지 않은 예외는 1) | 멈추고 출력 전문과 원인 추정을 보고합니다. |
 
 종료 코드 2의 대표 메시지는 다음과 같습니다.
 
