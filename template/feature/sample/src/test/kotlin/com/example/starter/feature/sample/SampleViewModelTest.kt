@@ -1,5 +1,6 @@
 package com.example.starter.feature.sample
 
+import app.cash.turbine.test
 import com.example.starter.core.common.AppResult
 import com.example.starter.core.common.HttpStatusException
 import com.example.starter.core.testing.MainDispatcherRule
@@ -18,7 +19,6 @@ import org.junit.Test
 import java.io.IOException
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class SampleViewModelTest {
@@ -35,10 +35,19 @@ class SampleViewModelTest {
             RefreshSampleItemsUseCase(repository),
         )
 
-    // uiState is WhileSubscribed, so keep a collector running for the whole test.
+    // Data is observed only while state has a collector (launchWhileSubscribed), like a visible screen.
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun TestScope.collect(viewModel: SampleViewModel) {
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect {} }
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.container.state.collect {} }
+    }
+
+    private suspend fun SampleViewModel.refreshAndAwaitError(): SampleError {
+        var error: SampleError? = null
+        container.sideEffect.test {
+            onIntent(SampleIntent.Refresh)
+            error = (awaitItem() as SampleSideEffect.ShowError).error
+        }
+        return checkNotNull(error)
     }
 
     @Test
@@ -50,45 +59,60 @@ class SampleViewModelTest {
             val viewModel = viewModel()
             collect(viewModel)
 
-            assertEquals(items, viewModel.uiState.value.items)
-            assertEquals(7L, viewModel.uiState.value.lastRefreshedAt)
+            assertEquals(items, viewModel.container.state.value.items)
+            assertEquals(7L, viewModel.container.state.value.lastRefreshedAt)
         }
 
     @Test
-    fun `IOException maps to Network error and stops refreshing`() =
+    fun `items are not observed without a collector`() =
+        runTest {
+            repository.items.value = listOf(SampleItem(1, "a"))
+            val viewModel = viewModel()
+
+            assertEquals(emptyList(), viewModel.container.state.value.items)
+        }
+
+    @Test
+    fun `IOException posts Network error and stops refreshing`() =
         runTest {
             repository.refreshResult = AppResult.Failure(IOException("offline"))
             val viewModel = viewModel()
             collect(viewModel)
 
-            viewModel.onAction(SampleAction.Refresh)
-
-            assertEquals(SampleError.Network, viewModel.uiState.value.error)
-            assertFalse(viewModel.uiState.value.isRefreshing)
+            assertEquals(SampleError.Network, viewModel.refreshAndAwaitError())
+            assertFalse(viewModel.container.state.value.isRefreshing)
         }
 
     @Test
-    fun `HttpStatusException maps to Server error, not Network`() =
+    fun `HttpStatusException posts Server error, not Network`() =
         runTest {
             repository.refreshResult = AppResult.Failure(HttpStatusException(503, RuntimeException("boom")))
             val viewModel = viewModel()
             collect(viewModel)
 
-            viewModel.onAction(SampleAction.Refresh)
-
-            assertEquals(SampleError.Server, viewModel.uiState.value.error)
+            assertEquals(SampleError.Server, viewModel.refreshAndAwaitError())
         }
 
     @Test
-    fun `other failures map to Unknown error`() =
+    fun `other failures post Unknown error`() =
         runTest {
             repository.refreshResult = AppResult.Failure(IllegalStateException("bug"))
             val viewModel = viewModel()
             collect(viewModel)
 
-            viewModel.onAction(SampleAction.Refresh)
+            assertEquals(SampleError.Unknown, viewModel.refreshAndAwaitError())
+        }
 
-            assertEquals(SampleError.Unknown, viewModel.uiState.value.error)
+    @Test
+    fun `successful refresh posts no side effect`() =
+        runTest {
+            val viewModel = viewModel()
+            collect(viewModel)
+
+            viewModel.container.sideEffect.test {
+                viewModel.onIntent(SampleIntent.Refresh)
+                expectNoEvents()
+            }
         }
 
     @Test
@@ -98,12 +122,11 @@ class SampleViewModelTest {
             val viewModel = viewModel()
             collect(viewModel)
 
-            viewModel.onAction(SampleAction.Refresh)
-            assertTrue(viewModel.uiState.value.isRefreshing)
+            viewModel.onIntent(SampleIntent.Refresh)
+            assertTrue(viewModel.container.state.value.isRefreshing)
 
             repository.refreshGate.value = true
-            assertFalse(viewModel.uiState.value.isRefreshing)
-            assertNull(viewModel.uiState.value.error)
+            assertFalse(viewModel.container.state.value.isRefreshing)
         }
 
     @Test
@@ -113,23 +136,10 @@ class SampleViewModelTest {
             val viewModel = viewModel()
             collect(viewModel)
 
-            viewModel.onAction(SampleAction.Refresh)
-            viewModel.onAction(SampleAction.Refresh)
+            viewModel.onIntent(SampleIntent.Refresh)
+            viewModel.onIntent(SampleIntent.Refresh)
             repository.refreshGate.value = true
 
             assertEquals(1, repository.refreshCount)
-        }
-
-    @Test
-    fun `DismissError clears error`() =
-        runTest {
-            repository.refreshResult = AppResult.Failure(IOException("offline"))
-            val viewModel = viewModel()
-            collect(viewModel)
-            viewModel.onAction(SampleAction.Refresh)
-
-            viewModel.onAction(SampleAction.DismissError)
-
-            assertNull(viewModel.uiState.value.error)
         }
 }

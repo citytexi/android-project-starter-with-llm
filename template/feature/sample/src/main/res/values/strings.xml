@@ -2,7 +2,6 @@
 <resources>
     <string name="sample_title">샘플 항목</string>
     <string name="sample_refresh">새로고침</string>
-    <string name="sample_dismiss">닫기</string>
     <string name="sample_empty">아직 항목이 없어요. 새로고침을 눌러 주세요.</string>
     <string name="sample_never_refreshed">새로고침한 적 없음</string>
     <string name="sample_last_refreshed">마지막 새로고침: %1$s</string>

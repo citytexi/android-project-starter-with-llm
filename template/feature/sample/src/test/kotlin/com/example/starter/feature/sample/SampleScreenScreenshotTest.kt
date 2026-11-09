@@ -1,5 +1,9 @@
 package com.example.starter.feature.sample
 
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import com.example.starter.core.designsystem.theme.StarterTheme
@@ -40,26 +44,37 @@ class SampleScreenScreenshotTest {
             SampleUiState(items = listOf(SampleItem(1, "First"), SampleItem(2, "Second")), isRefreshing = true),
         )
 
+    // Errors are SampleSideEffect.ShowError: the Route shows them in a snackbar, as here.
     @Test
-    fun networkError() = capture("sample_screen_error_network", SampleUiState(error = SampleError.Network))
+    fun networkError() = capture("sample_screen_error_network", SampleUiState(), SampleError.Network)
 
     @Test
-    fun serverError() = capture("sample_screen_error_server", SampleUiState(error = SampleError.Server))
+    fun serverError() = capture("sample_screen_error_server", SampleUiState(), SampleError.Server)
 
     @Test
     fun unknownError() =
         capture(
             "sample_screen_error_unknown",
-            SampleUiState(items = listOf(SampleItem(1, "First")), error = SampleError.Unknown),
+            SampleUiState(items = listOf(SampleItem(1, "First"))),
+            SampleError.Unknown,
         )
 
     private fun capture(
         name: String,
-        uiState: SampleUiState,
+        state: SampleUiState,
+        error: SampleError? = null,
     ) {
+        val snackbarHostState = SnackbarHostState()
         composeRule.setContent {
             StarterTheme(darkTheme = false) {
-                SampleScreen(uiState = uiState, onAction = {})
+                SampleScreen(state = state, snackbarHostState = snackbarHostState, onIntent = {})
+            }
+            if (error != null) {
+                val message = stringResource(error.messageRes)
+                // Indefinite: the snackbar stays until captured (a timed one would be gone once idle).
+                LaunchedEffect(message) {
+                    snackbarHostState.showSnackbar(message, withDismissAction = true, duration = SnackbarDuration.Indefinite)
+                }
             }
         }
         composeRule.onRoot().captureRoboImage("build/outputs/roborazzi/$name.png")
