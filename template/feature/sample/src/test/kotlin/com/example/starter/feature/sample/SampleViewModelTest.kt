@@ -3,43 +3,36 @@ package com.example.starter.feature.sample
 import com.example.starter.core.common.AppResult
 import com.example.starter.core.testing.MainDispatcherRule
 import com.example.starter.domain.model.SampleItem
+import com.example.starter.domain.testing.FakeSampleRepository
 import com.example.starter.domain.usecase.ObserveLastRefreshedAtUseCase
 import com.example.starter.domain.usecase.ObserveSampleItemsUseCase
 import com.example.starter.domain.usecase.RefreshSampleItemsUseCase
-import io.mockk.coEvery
-import io.mockk.coVerify
-import io.mockk.every
-import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
 import org.junit.Test
+import java.io.IOException
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class SampleViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
-    private val observeItems = mockk<ObserveSampleItemsUseCase>()
-    private val observeLastRefreshedAt = mockk<ObserveLastRefreshedAtUseCase>()
-    private val refreshItems = mockk<RefreshSampleItemsUseCase>()
+    private val repository = FakeSampleRepository()
 
-    private fun viewModel(
-        items: List<SampleItem> = emptyList(),
-        lastRefreshedAt: Long? = null,
-    ): SampleViewModel {
-        every { observeItems() } returns flowOf(items)
-        every { observeLastRefreshedAt() } returns flowOf(lastRefreshedAt)
-        return SampleViewModel(observeItems, observeLastRefreshedAt, refreshItems)
-    }
+    // Real use cases on a fake repository: the test covers the same wiring as the app.
+    private fun viewModel() =
+        SampleViewModel(
+            ObserveSampleItemsUseCase(repository),
+            ObserveLastRefreshedAtUseCase(repository),
+            RefreshSampleItemsUseCase(repository),
+        )
 
     // uiState is WhileSubscribed, so keep a collector running for the whole test.
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -51,7 +44,9 @@ class SampleViewModelTest {
     fun `items from use case appear in state`() =
         runTest {
             val items = listOf(SampleItem(1, "a"), SampleItem(2, "b"))
-            val viewModel = viewModel(items = items, lastRefreshedAt = 7L)
+            repository.items.value = items
+            repository.lastRefreshedAt.value = 7L
+            val viewModel = viewModel()
             collect(viewModel)
 
             assertEquals(items, viewModel.uiState.value.items)
@@ -59,65 +54,69 @@ class SampleViewModelTest {
         }
 
     @Test
-    fun `refresh failure sets errorMessage and stops refreshing`() =
+    fun `IOException maps to Network error and stops refreshing`() =
         runTest {
-            coEvery { refreshItems() } returns AppResult.Failure(IllegalStateException("offline"))
+            repository.refreshResult = AppResult.Failure(IOException("offline"))
             val viewModel = viewModel()
             collect(viewModel)
 
             viewModel.onAction(SampleAction.Refresh)
 
-            assertEquals("offline", viewModel.uiState.value.errorMessage)
+            assertEquals(SampleError.Network, viewModel.uiState.value.error)
             assertFalse(viewModel.uiState.value.isRefreshing)
+        }
+
+    @Test
+    fun `other failures map to Unknown error`() =
+        runTest {
+            repository.refreshResult = AppResult.Failure(IllegalStateException("bug"))
+            val viewModel = viewModel()
+            collect(viewModel)
+
+            viewModel.onAction(SampleAction.Refresh)
+
+            assertEquals(SampleError.Unknown, viewModel.uiState.value.error)
         }
 
     @Test
     fun `refresh shows refreshing until the use case returns`() =
         runTest {
-            val gate = MutableStateFlow(false)
-            coEvery { refreshItems() } coAnswers {
-                gate.first { it }
-                AppResult.Success(Unit)
-            }
+            repository.refreshGate.value = false
             val viewModel = viewModel()
             collect(viewModel)
 
             viewModel.onAction(SampleAction.Refresh)
-            assertEquals(true, viewModel.uiState.value.isRefreshing)
+            assertTrue(viewModel.uiState.value.isRefreshing)
 
-            gate.value = true
+            repository.refreshGate.value = true
             assertFalse(viewModel.uiState.value.isRefreshing)
-            assertNull(viewModel.uiState.value.errorMessage)
+            assertNull(viewModel.uiState.value.error)
         }
 
     @Test
     fun `second Refresh while refreshing is ignored`() =
         runTest {
-            val gate = MutableStateFlow(false)
-            coEvery { refreshItems() } coAnswers {
-                gate.first { it }
-                AppResult.Success(Unit)
-            }
+            repository.refreshGate.value = false
             val viewModel = viewModel()
             collect(viewModel)
 
             viewModel.onAction(SampleAction.Refresh)
             viewModel.onAction(SampleAction.Refresh)
-            gate.value = true
+            repository.refreshGate.value = true
 
-            coVerify(exactly = 1) { refreshItems() }
+            assertEquals(1, repository.refreshCount)
         }
 
     @Test
     fun `DismissError clears error`() =
         runTest {
-            coEvery { refreshItems() } returns AppResult.Failure(IllegalStateException("offline"))
+            repository.refreshResult = AppResult.Failure(IOException("offline"))
             val viewModel = viewModel()
             collect(viewModel)
             viewModel.onAction(SampleAction.Refresh)
 
             viewModel.onAction(SampleAction.DismissError)
 
-            assertNull(viewModel.uiState.value.errorMessage)
+            assertNull(viewModel.uiState.value.error)
         }
 }

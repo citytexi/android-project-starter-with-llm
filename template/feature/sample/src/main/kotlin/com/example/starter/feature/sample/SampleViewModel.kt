@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.IOException
 import javax.inject.Inject
 
 @HiltViewModel
@@ -32,37 +33,43 @@ class SampleViewModel
                     items = items,
                     lastRefreshedAt = lastRefreshedAt,
                     isRefreshing = refresh.isRefreshing,
-                    errorMessage = refresh.errorMessage,
+                    error = refresh.error,
                 )
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), SampleUiState())
 
         fun onAction(action: SampleAction) {
             when (action) {
                 SampleAction.Refresh -> refresh()
-                SampleAction.DismissError -> refreshState.update { it.copy(errorMessage = null) }
+                SampleAction.DismissError -> refreshState.update { it.copy(error = null) }
             }
         }
 
         private fun refresh() {
             if (refreshState.value.isRefreshing) return
-            refreshState.update { it.copy(isRefreshing = true, errorMessage = null) }
+            refreshState.update { it.copy(isRefreshing = true, error = null) }
             viewModelScope.launch {
                 val failure = refreshSampleItems() as? AppResult.Failure
                 refreshState.value =
                     RefreshState(
                         isRefreshing = false,
-                        errorMessage = failure?.let { it.error.message ?: DEFAULT_ERROR },
+                        error = failure?.error?.toSampleError(),
                     )
             }
         }
 
         private data class RefreshState(
             val isRefreshing: Boolean = false,
-            val errorMessage: String? = null,
+            val error: SampleError? = null,
         )
 
         private companion object {
             const val STOP_TIMEOUT_MILLIS = 5_000L
-            const val DEFAULT_ERROR = "Refresh failed"
         }
+    }
+
+/** The data layer reports network and HTTP failures as `IOException`; everything else is [SampleError.Unknown]. */
+private fun Throwable.toSampleError(): SampleError =
+    when (this) {
+        is IOException -> SampleError.Network
+        else -> SampleError.Unknown
     }

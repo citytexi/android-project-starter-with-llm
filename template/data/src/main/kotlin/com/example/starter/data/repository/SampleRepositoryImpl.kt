@@ -41,15 +41,21 @@ class SampleRepositoryImpl(
 
     override fun observeLastRefreshedAt(): Flow<Long?> = settings.lastRefreshedAt
 
+    // Retrofit suspend calls, Room and DataStore are already main-safe. withContext(ioDispatcher)
+    // is kept on purpose: the DTO-to-entity mapping and any blocking work added later stay off the
+    // main thread, and tests swap the dispatcher for a test one.
     override suspend fun refresh(): AppResult<Unit> =
         withContext(ioDispatcher) {
             appRunCatching {
-                val entities = api.getItems().map { SampleItemEntity(it.id, it.title) }
+                val entities = mapHttpErrors { api.getItems() }.map { SampleItemEntity(it.id, it.title) }
                 // One transaction: a failed write rolls back, so the cache is never left empty.
                 database.withTransaction {
                     dao.clear()
                     dao.upsertAll(entities)
                 }
+                // Written only after the transaction commits, so a failed write never records a
+                // refresh time. If this write itself fails, the items are already saved and the
+                // result is Failure; the next refresh records the time.
                 settings.setLastRefreshedAt(clock())
             }
         }

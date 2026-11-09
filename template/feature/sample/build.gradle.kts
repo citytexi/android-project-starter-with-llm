@@ -12,4 +12,6 @@ android {
 // this file stays the same for every variant.
 dependencies {
     testImplementation(project(":core:testing:jvm"))
+    // FakeSampleRepository: tests run the real use cases on a fake repository instead of mocks.
+    testImplementation(testFixtures(project(":domain")))
 }

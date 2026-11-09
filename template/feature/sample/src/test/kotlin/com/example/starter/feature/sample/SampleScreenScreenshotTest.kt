@@ -28,11 +28,27 @@ class SampleScreenScreenshotTest {
             SampleUiState(items = listOf(SampleItem(1, "First"), SampleItem(2, "Second"), SampleItem(3, "Third"))),
         )
 
+    // First load: nothing cached yet, so a centered spinner stands in for the list.
     @Test
     fun refreshing() = capture("sample_screen_refreshing", SampleUiState(isRefreshing = true))
 
+    // Refresh with cached items: the list stays and a bar shows on top.
     @Test
-    fun error() = capture("sample_screen_error", SampleUiState(errorMessage = "Unable to resolve host"))
+    fun refreshingWithItems() =
+        capture(
+            "sample_screen_refreshing_with_items",
+            SampleUiState(items = listOf(SampleItem(1, "First"), SampleItem(2, "Second")), isRefreshing = true),
+        )
+
+    @Test
+    fun networkError() = capture("sample_screen_error_network", SampleUiState(error = SampleError.Network))
+
+    @Test
+    fun unknownError() =
+        capture(
+            "sample_screen_error_unknown",
+            SampleUiState(items = listOf(SampleItem(1, "First")), error = SampleError.Unknown),
+        )
 
     private fun capture(
         name: String,

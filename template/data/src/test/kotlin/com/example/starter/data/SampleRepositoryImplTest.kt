@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.example.starter.core.common.AppResult
+import com.example.starter.core.common.HttpStatusException
 import com.example.starter.core.database.StarterDatabase
 import com.example.starter.core.database.dao.SampleItemDao
 import com.example.starter.core.database.model.SampleItemEntity
@@ -14,6 +15,7 @@ import com.example.starter.core.network.model.SampleItemResponse
 import com.example.starter.data.repository.SampleRepositoryImpl
 import com.example.starter.domain.model.SampleItem
 import kotlinx.coroutines.flow.first
+import okhttp3.ResponseBody.Companion.toResponseBody
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -25,6 +27,8 @@ import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import retrofit2.HttpException
+import retrofit2.Response
 import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -98,6 +102,17 @@ class SampleRepositoryImplTest {
             assertEquals(failure, assertIs<AppResult.Failure>(result).error)
             assertEquals(listOf(SampleItem(9, "old")), repository.observeItems().first())
             assertNull(repository.observeLastRefreshedAt().first())
+        }
+
+    @Test
+    fun `HTTP error status becomes HttpStatusException`() =
+        runTest {
+            val api = FakeApi { throw HttpException(Response.error<Unit>(503, "".toResponseBody())) }
+            val repository = repository(api, settings())
+
+            val error = assertIs<AppResult.Failure>(repository.refresh()).error
+
+            assertEquals(503, assertIs<HttpStatusException>(error).code)
         }
 
     @Test
