@@ -6,6 +6,11 @@
 
     <!-- Launch theme. installSplashScreen() swaps it for postSplashScreenTheme. -->
     <style name="Theme.Starter.Splash" parent="Theme.SplashScreen">
+        <!-- Light here; values-night/colors.xml overrides splash_background for dark mode. -->
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <!-- Draws the icon on a circle in the launcher color, like the launcher icon. -->
+        <item name="windowSplashScreenIconBackgroundColor">@color/splash_icon_background</item>
         <item name="postSplashScreenTheme">@style/Theme.Starter</item>
     </style>
 </resources>

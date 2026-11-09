@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Placeholder launcher and splash icon: replace it with the app's own artwork.
+     Adaptive-icon foreground: 108dp canvas, keep the artwork inside the central 66dp. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Rounded square outline with a dot: reads as "app" at every size. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M42,36L66,36A6,6 0,0 1,72 42L72,66A6,6 0,0 1,66 72L42,72A6,6 0,0 1,36 66L36,42A6,6 0,0 1,42 36ZM43,41A2,2 0,0 0,41 43L41,65A2,2 0,0 0,43 67L65,67A2,2 0,0 0,67 65L67,43A2,2 0,0 0,65 41Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,54m-6,0a6,6 0,1 1,12 0a6,6 0,1 1,-12 0" />
+</vector>
