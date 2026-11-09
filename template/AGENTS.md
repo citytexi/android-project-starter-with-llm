@@ -18,9 +18,9 @@ LLM 도구(Claude Code, Cursor, Codex)와 팀원이 이 프로젝트에서 지�
 | `:core:ui` | Android | feature 공용 UI 유틸 |
 | `:core:navigation` | Android | route/key 정의. nav 라이브러리를 `api`로 노출 |
 | `:core:network` | Android | Retrofit, OkHttp, `SampleApi`, `BuildConfig.BASE_URL` |
-| `:core:database` | Android | Room |
+| `:core:database` | Android | Room. 스키마를 바꿀 때는 `StarterDatabase` KDoc(버전, AutoMigration)과 `StarterDatabaseMigrationTest`를 따른다 |
 | `:core:datastore` | Android | DataStore 설정, `SecureStore` |
-| `:core:common` | JVM | 공용 타입(`AppResult` 등) |
+| `:core:common` | JVM | 공용 타입(`AppResult`, `HttpStatusException` 등), dispatcher qualifier와 Hilt 바인딩(`DispatcherModule`, JVM용 `hilt-core`) |
 | `:core:testing:jvm` | JVM | JVM 테스트 도구 |
 | `:core:testing:android` | Android | 계측/Robolectric 테스트 도구 |
 | `:konsist` | JVM | 아키텍처 규칙 테스트(소스 경로만 읽음) |
@@ -69,6 +69,7 @@ nav 파일 이름은 `StarterRoutes`/`StarterNavKeys`처럼 접두사를 쓴다.
    - `domain`: 모델, `<Name>Repository` 인터페이스, `<Action><Name>UseCase`(`operator fun invoke`)
    - `data`: `<Name>RepositoryImpl`, `DataModule`에 `@Binds` 추가
    - `feature`: `@HiltViewModel` ViewModel은 UseCase만 주입받는다. Repository를 직접 주입하지 않는다.
+   - 오류 표시: `data`는 Retrofit `HttpException`을 `mapHttpErrors { }`로 `HttpStatusException`(`IOException`)으로 바꾼다. ViewModel은 `AppResult.Failure`의 예외를 `SampleError` 같은 타입으로만 바꾸고(`IOException`이면 네트워크, 나머지는 알 수 없음) 문구는 들고 있지 않는다. 화면이 `stringResource`로 문구를 고른다.
 4. nav 등록. **먼저 프로젝트가 쓰는 variant를 확인한다.** `core/navigation/build.gradle.kts`에 `navigation-compose`(`androidx.navigation.compose`)가 있으면 nav2, `navigation3`가 있으면 nav3다.
    - 시작 화면은 nav2는 `StarterNavHost`의 `startDestination = ...`, nav3는 `rememberNavBackStack(...)`에서 정한다.
 
@@ -82,7 +83,7 @@ nav 파일 이름은 `StarterRoutes`/`StarterNavKeys`처럼 접두사를 쓴다.
    - `feature/<name>/.../navigation/<Name>Navigation.kt`에 `fun EntryProviderScope<NavKey>.<name>Entry() { entry<<Name>Key> { <Name>Route() } }`를 만든다.
    - `app/.../navigation/StarterNavHost.kt`의 `entryProvider { }` 블록에서 `<name>Entry()`를 호출한다.
 
-5. 테스트를 쓴다(ViewModel 단위 테스트, 화면 스크린샷 테스트는 `SampleViewModelTest`, `SampleScreenScreenshotTest` 참고). 작업 중에는 `./gradlew testStarter`, 마무리는 `./gradlew verifyStarter`로 한다.
+5. 테스트를 쓴다(ViewModel 단위 테스트, 화면 스크린샷 테스트는 `SampleViewModelTest`, `SampleScreenScreenshotTest` 참고). UseCase는 mock하지 않는다. `domain/src/testFixtures`의 `FakeSampleRepository`처럼 가짜 Repository를 만들고 실제 UseCase에 넣는다. feature는 `testImplementation(testFixtures(project(":domain")))`로 받는다. 작업 중에는 `./gradlew testStarter`, 마무리는 `./gradlew verifyStarter`로 한다.
 
 ## 5. 검증
 
@@ -123,8 +124,8 @@ task는 두 개다. 모듈에 없는 task는 건너뛴다.
 
 ```kotlin
 interface SecureStore {
-    suspend fun get(key: String): String?   // 없거나 복호화 실패면 null
-    suspend fun put(key: String, value: String)
+    suspend fun get(key: String): String?   // 없거나 지금 읽을 수 없으면 null. 예외를 던지지 않음
+    suspend fun put(key: String, value: String)   // 쓰기/암호화 실패 시 예외
     suspend fun remove(key: String)
 }
 ```
@@ -132,6 +133,9 @@ interface SecureStore {
 - `DataStoreModule`이 Hilt `SingletonComponent`에 바인딩한다. 생성자 주입으로 받는다.
 - `feature`는 `core:datastore`를 쓸 수 없다. `data`의 `RepositoryImpl`에서 주입받고, `domain`의 Repository 인터페이스로 감싸 노출한다.
 - 키가 사라졌거나(재설치, 백업 복원) 값이 손상되면 값을 지우고 `null`을 돌려준다. 호출부는 `null`을 "로그인 필요" 같은 재입력 상태로 처리한다.
+- Keystore가 잠깐 실패하거나(`KeyStoreException`, `ProviderException`) 파일을 읽지 못하면 값은 지우지 않고 `null`을 돌려준다. 다음 호출에서 다시 읽힐 수 있다.
+- `put`은 파일 쓰기(`IOException`)나 암호화(`GeneralSecurityException`, `ProviderException`)가 실패하면 예외를 던진다. `data`에서 `appRunCatching`으로 감싼다.
+- DataStore 주입은 `@SecurePreferences`/`@SettingsPreferences` qualifier로 구분한다.
 - 모든 호출은 `suspend`다. 메인 스레드 블로킹을 하지 않는다.
 
 ## 8. release 서명
