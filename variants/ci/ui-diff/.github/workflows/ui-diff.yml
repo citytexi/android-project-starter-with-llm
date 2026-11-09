@@ -7,6 +7,9 @@ on:
     branches: [ main ]
     paths:
       - 'feature/**'
+      - 'domain/**'
+      - 'core/common/**'
+      - 'core/navigation/**'
       - 'core/designsystem/**'
       - 'core/ui/**'
       - 'core/testing/android/**'
@@ -61,7 +64,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/ui-diff/meta" "$RUNNER_TEMP/ui-diff/logs" "$RUNNER_TEMP/ui-diff/tools"
           : > "$RUNNER_TEMP/ui-diff/meta/base-list.txt"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         if: steps.merge.outputs.sha != ''
         with:
           ref: ${{ steps.merge.outputs.sha }}
@@ -87,7 +90,7 @@ jobs:
       - uses: ./.github/actions/setup-android-build
         if: steps.merge.outputs.sha != ''
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         if: steps.merge.outputs.sha != ''
         with:
           ref: ${{ steps.parents.outputs.base_sha }}
@@ -127,7 +130,7 @@ jobs:
           --dest "$RUNNER_TEMP/ui-diff/base"
           --list "$RUNNER_TEMP/ui-diff/meta/base-list.txt"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         if: steps.base_setup.outcome == 'success'
         with:
           ref: ${{ steps.merge.outputs.sha }}
@@ -209,7 +212,7 @@ jobs:
 
       - name: Upload meta
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ui-diff-meta
           path: ${{ runner.temp }}/ui-diff/meta/
@@ -218,7 +221,7 @@ jobs:
 
       - name: Upload results
         if: always() && steps.base_setup.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ui-diff-results
           path: ${{ runner.temp }}/ui-diff/results/

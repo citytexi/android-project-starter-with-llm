@@ -191,13 +191,13 @@ class CliTest(unittest.TestCase):
             self.assertEqual(report.main(args + [HEAD]), 0)
             self.assertEqual(gh.read_text(), f"pr=7\nhead_sha={HEAD}\nstatus=failed\nfailed_modules=2\n")
 
-    def test_meta_rejects_head_not_from_workflow_run(self):
+    def test_meta_reports_head_not_from_workflow_run_as_stale(self):
         with tempfile.TemporaryDirectory() as tmp:
             meta_file = Path(tmp) / "meta.json"
             gh = Path(tmp) / "gh"
             meta_file.write_text(json.dumps(meta()))
             args = ["meta", "--meta", str(meta_file), "--github-output", str(gh), "--expected-head", "2" * 40]
-            self.assertEqual(report.main(args), 2)
+            self.assertEqual(report.main(args), 3)
             self.assertFalse(gh.exists())
 
     def test_meta_rejects_invalid_meta(self):

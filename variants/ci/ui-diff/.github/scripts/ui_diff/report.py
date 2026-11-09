@@ -374,10 +374,11 @@ def cmd_render(args) -> int:
 
 
 def cmd_meta(args) -> int:
-    """검증한 메타 값만 스텝 출력으로 넘긴다. head_sha가 워크플로 런의 head와 다르면 거부한다."""
+    """검증한 메타 값만 스텝 출력으로 넘긴다. head_sha가 워크플로 런의 head와 다르면 아무것도 내보내지 않고 3을 돌려준다."""
     meta = load_meta(args.meta)
     if meta.head_sha != args.expected_head:
-        raise ValueError("meta head_sha does not match the workflow run")
+        print("ui-diff report: meta head_sha does not match the workflow run", file=sys.stderr)
+        return 3
     with open(args.github_output, "a", encoding="utf-8") as out:
         out.write(f"pr={meta.pr}\nhead_sha={meta.head_sha}\nstatus={meta.status}\nfailed_modules={len(meta.failed_modules)}\n")
     return 0

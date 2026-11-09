@@ -6,49 +6,53 @@ name: build-release
 #   RELEASE_KEY_ALIAS          STARTER_KEY_ALIAS 로 전달된다
 #   RELEASE_KEY_PASSWORD       STARTER_KEY_PASSWORD 로 전달된다
 # 키스토어 경로는 STARTER_KEYSTORE_PATH 로 넘긴다. 시크릿이 있을 때만 디코딩한 파일을 가리킨다.
-# 주의: 같은 저장소 PR 에서는 위 시크릿이 PR 이 바꾼 Gradle 코드에도 노출된다. 포크 PR 에는 시크릿이 없다.
-# 더 엄격하게 다루려면 트리거를 workflow_dispatch 만 남기도록 바꾼다.
+#
+# 시크릿은 저장소 시크릿이 아니라 `release` environment 의 시크릿으로 둔다.
+# Settings > Environments 에서 `release` 를 만들고 Required reviewers 를 지정하면,
+# 승인 없이는 이 잡이 시크릿을 읽지 못한다. (environment 가 없으면 첫 실행 때 보호 규칙 없이 만들어진다.)
+#
+# 트리거는 수동 실행(workflow_dispatch)뿐이다. PR 이 바꾼 Gradle 코드가 서명 시크릿을 읽을 수 없게 하려는 것이다.
+# 태그로 릴리스를 만들고 싶은 팀은 `on:` 에 아래를 더한다. 태그를 만들 수 있는 사람이 곧 시크릿을 쓸 수 있는 사람이 되니
+# 태그 보호 규칙(Settings > Rules)을 함께 설정한다.
+#   push:
+#     tags: [ 'v*' ]
 on:
-  pull_request:
-    branches: [ main ]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: build-release-${{ github.event.pull_request.number || github.ref }}
+  group: build-release-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build-release:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+    environment: release
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
 
-      - id: changes
-        if: github.event_name == 'pull_request'
-        uses: ./.github/actions/detect-code-changes
-
       - uses: ./.github/actions/setup-android-build
-        if: steps.changes.outputs.code != 'false'
 
-      # 포크 PR 에는 시크릿이 없어서 이 단계가 건너뛰어진다
+      # 키스토어가 없으면 이 단계는 아무것도 하지 않고 steps.keystore.outputs.path 는 비어 있다
       - name: Decode keystore
         id: keystore
-        if: steps.changes.outputs.code != 'false' && env.KEYSTORE_BASE64 != ''
+        env:
+          KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
         run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::warning::RELEASE_KEYSTORE_BASE64 is not set; the release APK is signed with the debug key"
+            exit 0
+          fi
           path="$RUNNER_TEMP/release.jks"
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$path"
           echo "path=$path" >> "$GITHUB_OUTPUT"
 
       - name: Assemble release
-        if: steps.changes.outputs.code != 'false'
         env:
           STARTER_KEYSTORE_PATH: ${{ steps.keystore.outputs.path }}
           STARTER_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
@@ -57,13 +61,27 @@ jobs:
         run: ./gradlew assembleRelease
 
       - name: Upload release APK
-        uses: actions/upload-artifact@v4
-        if: steps.changes.outputs.code != 'false'
+        if: steps.keystore.outputs.path != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: app-release-apk
           path: app/build/outputs/apk/release/*.apk
           retention-days: 7
           if-no-files-found: error
+
+      # 배포용이 아니다. 이름으로 구분되게 하고 경고를 남긴다
+      - name: Upload debug-signed release APK
+        if: steps.keystore.outputs.path == ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: app-release-debugkey
+          path: app/build/outputs/apk/release/*.apk
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Warn about debug signing
+        if: steps.keystore.outputs.path == ''
+        run: echo "::warning::Uploaded as app-release-debugkey - signed with the debug key, not for distribution"
 
       - name: Remove keystore
         if: always() && steps.keystore.outputs.path != ''

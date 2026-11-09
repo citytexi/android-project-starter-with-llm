@@ -3,6 +3,7 @@ name: UI diff comment
 # UI diff 런의 아티팩트를 받아 PR 에 비교 코멘트를 남긴다. 쓰기 권한이 있는 잡이라 PR 코드는 체크아웃하지 않는다.
 # 아티팩트는 PR 코드가 만든 것이라 전부 신뢰하지 않는다. 값은 report.py 검증을 거친 것만 쓰고,
 # 메타의 PR·head 는 이 이벤트의 head 와 PR API 로 다시 묶는다.
+# 코멘트에 넣는 이미지는 ui-snapshots/pr-N 브랜치를 가리킨다. 비공개 저장소에서는 저장소를 볼 수 있는 사람에게만 보인다.
 on:
   workflow_run:
     workflows: [UI diff]
@@ -31,7 +32,7 @@ jobs:
       REPORT: ${{ github.workspace }}/.github/scripts/ui_diff/report.py
     steps:
       # workflow_run 은 default 브랜치에서 돈다. 스크립트만 쓰고 PR 코드는 받지 않는다
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
 
@@ -42,14 +43,23 @@ jobs:
           mkdir -p "$WORK"
           gh run download "$RUN_ID" -R "$GITHUB_REPOSITORY" -n ui-diff-meta -D "$WORK/meta"
 
-      # 남의 PR 번호와 그 PR 의 공개 head SHA 를 적어 넣은 메타를 막으려고, head_sha 를 이 런의 head 와 맞춘다
+      # 남의 PR 번호와 그 PR 의 공개 head SHA 를 적어 넣은 메타를 막으려고, head_sha 를 이 런의 head 와 맞춘다.
+      # 맞지 않으면(렌더 중 head 가 움직인 경우 포함) 아무것도 쓰지 않고 알림만 남긴 채 성공으로 끝낸다. 검증 실패(그 외 오류)는 잡 실패다
       - name: Read meta
         id: meta
-        run: python3 "$REPORT" meta --meta "$WORK/meta/meta.json" --expected-head "$EVENT_HEAD_SHA" --github-output "$GITHUB_OUTPUT"
+        run: |
+          rc=0
+          python3 "$REPORT" meta --meta "$WORK/meta/meta.json" --expected-head "$EVENT_HEAD_SHA" --github-output "$GITHUB_OUTPUT" || rc=$?
+          case "$rc" in
+            0) ;;
+            3) echo "::notice::meta head does not match this workflow run (head moved?); skipping the comment"; echo "stale=true" >> "$GITHUB_OUTPUT" ;;
+            *) exit 1 ;;
+          esac
 
       # PR 의 head 저장소·브랜치도 이 런과 같은지 본다. head 가 그새 움직였으면 아무것도 쓰지 않고 끝낸다
       - name: Verify pull request
         id: verify
+        if: steps.meta.outputs.stale != 'true'
         env:
           PR: ${{ steps.meta.outputs.pr }}
         run: |
@@ -65,7 +75,7 @@ jobs:
           python3 "$REPORT" check-head --meta "$WORK/meta/meta.json" --current-head "$current" || rc=$?
           case "$rc" in
             0) echo "stale=false" >> "$GITHUB_OUTPUT" ;;
-            3) echo "head moved to $current; skipping"; echo "stale=true" >> "$GITHUB_OUTPUT" ;;
+            3) echo "::notice::head moved to $current; skipping the comment"; echo "stale=true" >> "$GITHUB_OUTPUT" ;;
             *) exit 1 ;;
           esac
 
