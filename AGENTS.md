@@ -71,7 +71,7 @@ python3 scripts/generate.py --prd <PRD 경로>
   3. 그 질문에 대한 명시적인 yes를 받습니다.
 
   `--overwrite`를 스스로 판단해서 붙이지 않고, 실패 후 재시도할 때도 붙이지 않습니다. 사용자가 거절하면 PRD의 `outputDir`을 바꾸자고 제안합니다.
-- 성공하면 `generated: <경로>`를 출력합니다. 출력에 `generated:` 줄이 여러 개면 마지막 줄의 경로를 씁니다. git이 설정돼 있으면 그 경로에서 `git init`과 첫 커밋까지 만듭니다. git이 없거나 `user.name`/`user.email`이 없으면 `warning: git init/commit failed ...`를 stderr에 내고 프로젝트는 그대로 생성한 채 종료 코드 0으로 끝납니다. 이것은 로컬 환경 문제이니 git 설정 방법만 안내합니다(`git config --global user.name "<이름>"`, `git config --global user.email "<이메일>"`, 이어서 경고가 안내한 `git init -b main && git add -A && git commit ...`).
+- 성공하면 `generated: <경로>`를 출력합니다. git이 설정돼 있으면 그 경로에서 `git init`과 첫 커밋까지 만듭니다. git이 없거나 `user.name`/`user.email`이 없으면 `warning: git init/commit failed ...`를 stderr에 내고 프로젝트는 그대로 생성한 채 종료 코드 0으로 끝납니다. 이것은 로컬 환경 문제이니 git 설정 방법만 안내합니다(`git config --global user.name "<이름>"`, `git config --global user.email "<이메일>"`, 이어서 경고가 안내한 `git init -b main && git add -A && git commit ...`).
 
 ### 4. 검증
 

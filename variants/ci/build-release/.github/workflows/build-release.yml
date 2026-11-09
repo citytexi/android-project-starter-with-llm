@@ -24,7 +24,7 @@ permissions:
 
 concurrency:
   group: build-release-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build-release:
@@ -43,10 +43,22 @@ jobs:
         id: keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
-          if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "::warning::RELEASE_KEYSTORE_BASE64 is not set; the release APK is signed with the debug key"
+          missing=""
+          [ -n "$KEYSTORE_BASE64" ] || missing="$missing RELEASE_KEYSTORE_BASE64"
+          [ -n "$KEYSTORE_PASSWORD" ] || missing="$missing RELEASE_KEYSTORE_PASSWORD"
+          [ -n "$KEY_ALIAS" ] || missing="$missing RELEASE_KEY_ALIAS"
+          [ -n "$KEY_PASSWORD" ] || missing="$missing RELEASE_KEY_PASSWORD"
+          if [ "$missing" = " RELEASE_KEYSTORE_BASE64 RELEASE_KEYSTORE_PASSWORD RELEASE_KEY_ALIAS RELEASE_KEY_PASSWORD" ]; then
+            echo "::warning::No release signing secrets are set; the release APK is signed with the debug key"
             exit 0
+          fi
+          if [ -n "$missing" ]; then
+            echo "::error::Release signing secrets are partly set. Missing:$missing"
+            exit 1
           fi
           path="$RUNNER_TEMP/release.jks"
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$path"
