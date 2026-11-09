@@ -1,4 +1,4 @@
-package com.example.starter.data.di
+package com.example.starter.core.common.di
 
 import com.example.starter.core.common.Dispatcher
 import com.example.starter.core.common.StarterDispatcher
@@ -9,6 +9,10 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 
+/**
+ * Binds the [Dispatcher] qualifiers. It lives next to them in `core:common` (not in `data`), so
+ * any module that injects a dispatcher, such as `core:datastore`, works without `data`.
+ */
 @Module
 @InstallIn(SingletonComponent::class)
 object DispatcherModule {
