@@ -128,4 +128,11 @@ class ModuleRulesTest {
     fun `konsist depends on nothing`() {
         assertFalse(ModuleRules.isAllowed(":konsist", ":domain"))
     }
+
+    @Test
+    fun `test fixtures capability is recognised by name`() {
+        assertTrue(ModuleRules.isTestFixturesCapability("domain-test-fixtures"))
+        assertFalse(ModuleRules.isTestFixturesCapability("domain"))
+        assertFalse(ModuleRules.isTestFixturesCapability("test-fixtures-helper"))
+    }
 }

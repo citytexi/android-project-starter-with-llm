@@ -76,6 +76,7 @@ private val SampleError.messageRes: Int
     get() =
         when (this) {
             SampleError.Network -> R.string.sample_error_network
+            SampleError.Server -> R.string.sample_error_server
             SampleError.Unknown -> R.string.sample_error_unknown
         }
 

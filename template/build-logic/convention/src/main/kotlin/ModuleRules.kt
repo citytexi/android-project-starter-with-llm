@@ -16,6 +16,8 @@
  *   so only other `:core:testing:*` modules may use it from main configurations.
  * - `:konsist` depends on nothing (it reads source paths).
  * - Anything else is denied.
+ * - Test fixtures (`testFixtures(project(...))`) may only be requested from test configurations,
+ *   whatever the module table says, because fixtures must not ship in a main classpath.
  */
 object ModuleRules {
     private val FEATURE_ALLOWED = setOf(
@@ -61,6 +63,12 @@ object ModuleRules {
         name
             .split(Regex("(?<=[a-z0-9])(?=[A-Z])|[^A-Za-z0-9]+"))
             .any { it.lowercase() in TEST_WORDS }
+
+    /**
+     * True for the capability Gradle's `java-test-fixtures` plugin publishes: `<module>-test-fixtures`.
+     * `testFixtures(project(":domain"))` requests it.
+     */
+    fun isTestFixturesCapability(capabilityName: String): Boolean = capabilityName.endsWith("-test-fixtures")
 
     private fun String.isUnder(parent: String): Boolean = startsWith("$parent:")
 }

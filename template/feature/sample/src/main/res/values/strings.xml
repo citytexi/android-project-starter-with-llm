@@ -7,5 +7,6 @@
     <string name="sample_never_refreshed">새로고침한 적 없음</string>
     <string name="sample_last_refreshed">마지막 새로고침: %1$s</string>
     <string name="sample_error_network">네트워크에 연결할 수 없어요</string>
+    <string name="sample_error_server">서버에 문제가 있어요. 잠시 후 다시 시도해 주세요</string>
     <string name="sample_error_unknown">새로고침에 실패했어요</string>
 </resources>

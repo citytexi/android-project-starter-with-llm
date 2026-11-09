@@ -44,6 +44,9 @@ class SampleScreenScreenshotTest {
     fun networkError() = capture("sample_screen_error_network", SampleUiState(error = SampleError.Network))
 
     @Test
+    fun serverError() = capture("sample_screen_error_server", SampleUiState(error = SampleError.Server))
+
+    @Test
     fun unknownError() =
         capture(
             "sample_screen_error_unknown",

@@ -54,8 +54,9 @@ internal fun Project.configureReleaseSigning(extension: ApplicationExtension) {
             // is built, and it survives configuration-cache reuse. Lifecycle tasks have no outputs,
             // so the action runs on every such build, cached or not.
             tasks
-                .matching { it.name in RELEASE_ARTIFACT_TASKS }
-                .configureEach { doFirst { logger.warn(DEBUG_SIGNING_WARNING) } }
+                .configureEach {
+                    if (name in RELEASE_ARTIFACT_TASKS) doFirst { logger.warn(DEBUG_SIGNING_WARNING) }
+                }
         }
         else ->
             throw GradleException(

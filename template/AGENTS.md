@@ -31,7 +31,7 @@ JVM 모듈은 `domain`, `core:common`, `core:testing:jvm`, `konsist`이고 나�
 
 ## 2. 의존 규칙
 
-Gradle `build-logic`의 `ModuleRules`가 모든 모듈의 프로젝트 의존을 검사하고 어기면 빌드가 실패한다. `implementation`/`api`뿐 아니라 직접 만든 구성과 `extendsFrom`으로 이어진 구성, `afterEvaluate`에서 추가한 의존도 검사한다. test 구성(`test`, `androidTest`, `testFixtures` 등 이름에 `test`/`Test` 단어가 있는 구성)은 검사하지 않는다.
+Gradle `build-logic`의 `ModuleRules`가 모든 모듈의 프로젝트 의존을 검사하고 어기면 빌드가 실패한다. `implementation`/`api`뿐 아니라 직접 만든 구성과 `extendsFrom`으로 이어진 구성, `afterEvaluate`에서 추가한 의존도 검사한다. test 구성(`test`, `androidTest`, `testFixtures` 등 이름에 `test`/`Test` 단어가 있는 구성)은 검사하지 않는다. 대신 test 구성이 아닌 곳에서 `testFixtures(project(...))`를 요청하면(`implementation(testFixtures(project(":domain")))` 등) 모듈 표와 관계없이 실패한다.
 
 | 모듈 | 의존해도 되는 모듈 |
 |---|---|
@@ -74,7 +74,7 @@ Konsist가 강제하는 규칙이다. 어기면 `testStarter`가 실패한다.
    - `data`: `<Name>RepositoryImpl`, `DataModule`에 `@Binds` 추가
    - `feature`: `@HiltViewModel` ViewModel은 UseCase만 주입받는다. Repository를 직접 주입하지 않는다.
    - 새 데이터 소스(API, DB, 설정)는 아래 "데이터 소스 추가"를 따른다.
-   - 오류 표시: `data`는 Retrofit `HttpException`을 `mapHttpErrors { }`로 `HttpStatusException`(`IOException`)으로 바꾼다. ViewModel은 `AppResult.Failure`의 예외를 `SampleError` 같은 타입으로만 바꾸고(`IOException`이면 네트워크, 나머지는 알 수 없음) 문구는 들고 있지 않는다. 화면이 `stringResource`로 문구를 고른다.
+   - 오류 표시: `data`는 Retrofit `HttpException`을 `mapHttpErrors { }`로 `HttpStatusException`(`IOException`)으로 바꾼다. ViewModel은 `AppResult.Failure`의 예외를 `SampleError` 같은 타입으로만 바꾸고(`HttpStatusException`이면 서버, 그 밖의 `IOException`이면 네트워크, 나머지는 알 수 없음. `HttpStatusException`이 `IOException`의 하위 타입이라 먼저 검사한다) 문구는 들고 있지 않는다. 화면이 `stringResource`로 문구를 고른다.
 4. nav 등록. **먼저 프로젝트가 쓰는 variant를 확인한다.** `core/navigation/build.gradle.kts`에 `navigation-compose`(`androidx.navigation.compose`)가 있으면 nav2, `navigation3`가 있으면 nav3다.
    - 시작 화면은 nav2는 `StarterNavHost`의 `startDestination = ...`, nav3는 `rememberNavBackStack(...)`에서 정한다.
 

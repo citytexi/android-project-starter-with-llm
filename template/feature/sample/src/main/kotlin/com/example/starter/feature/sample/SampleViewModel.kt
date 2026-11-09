@@ -3,6 +3,7 @@ package com.example.starter.feature.sample
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.starter.core.common.AppResult
+import com.example.starter.core.common.HttpStatusException
 import com.example.starter.domain.usecase.ObserveLastRefreshedAtUseCase
 import com.example.starter.domain.usecase.ObserveSampleItemsUseCase
 import com.example.starter.domain.usecase.RefreshSampleItemsUseCase
@@ -67,9 +68,13 @@ class SampleViewModel
         }
     }
 
-/** The data layer reports network and HTTP failures as `IOException`; everything else is [SampleError.Unknown]. */
+/**
+ * The data layer reports network and HTTP failures as `IOException`. [HttpStatusException] is an
+ * `IOException`, so it must be checked first. Everything else is [SampleError.Unknown].
+ */
 private fun Throwable.toSampleError(): SampleError =
     when (this) {
+        is HttpStatusException -> SampleError.Server
         is IOException -> SampleError.Network
         else -> SampleError.Unknown
     }

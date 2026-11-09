@@ -16,7 +16,7 @@ tasks.withType<Test>().configureEach {
                 include("**/src/**/*.kt", "**/*.kts")
                 // Module build directories only (root, app, feature/x, core/testing/x, build-logic/x).
                 // A `**/build/**` pattern would also drop source packages such as com/build/.
-                exclude("build/**", "*/build/**", "*/*/build/**", "*/*/*/build/**")
+                exclude("build/**", "*/build/**", "*/*/build/**", "*/*/*/build/**", "*/*/*/*/build/**")
                 exclude("**/.gradle/**", "**/.kotlin/**")
             },
         ).withPathSensitivity(PathSensitivity.RELATIVE)

@@ -1,6 +1,7 @@
 package com.example.starter.feature.sample
 
 import com.example.starter.core.common.AppResult
+import com.example.starter.core.common.HttpStatusException
 import com.example.starter.core.testing.MainDispatcherRule
 import com.example.starter.domain.model.SampleItem
 import com.example.starter.domain.testing.FakeSampleRepository
@@ -64,6 +65,18 @@ class SampleViewModelTest {
 
             assertEquals(SampleError.Network, viewModel.uiState.value.error)
             assertFalse(viewModel.uiState.value.isRefreshing)
+        }
+
+    @Test
+    fun `HttpStatusException maps to Server error, not Network`() =
+        runTest {
+            repository.refreshResult = AppResult.Failure(HttpStatusException(503, RuntimeException("boom")))
+            val viewModel = viewModel()
+            collect(viewModel)
+
+            viewModel.onAction(SampleAction.Refresh)
+
+            assertEquals(SampleError.Server, viewModel.uiState.value.error)
         }
 
     @Test
