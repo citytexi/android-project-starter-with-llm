@@ -42,7 +42,8 @@ _JAVA_KEYWORDS = {
     "_",
 }
 RESERVED_WORDS = frozenset(_KOTLIN_KEYWORDS | _JAVA_KEYWORDS)
-_SEGMENT_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+# No "_": ktlint (standard:package-name) and detekt (PackageNaming) reject it.
+_SEGMENT_RE = re.compile(r"^[a-z][a-z0-9]*$")
 _BLOCK_RE = re.compile(r"```properties[ \t]*\r?\n(.*?)```", re.DOTALL)
 
 
@@ -60,7 +61,7 @@ class Prd:
 
 
 def class_prefix(package_name: str) -> str:
-    """Class-name prefix derived from the last package segment (club_moim -> ClubMoim)."""
+    """Class-name prefix derived from the last package segment (moim -> Moim)."""
     last = package_name.split(".")[-1]
     return "".join(p[:1].upper() + p[1:] for p in last.split("_") if p)
 
@@ -131,8 +132,8 @@ def _package_errors(name: str, check_prefix: bool = True) -> list[str]:
     for seg in segments:
         if not _SEGMENT_RE.match(seg):
             errors.append(
-                f"packageName segment '{seg}' is invalid: use lowercase letters, "
-                "digits and '_', starting with a letter"
+                f"packageName segment '{seg}' is invalid: use only lowercase letters and "
+                "digits, starting with a letter (no '_': ktlint and detekt reject it)"
             )
         elif seg in RESERVED_WORDS:
             errors.append(f"packageName segment '{seg}' is a reserved word")

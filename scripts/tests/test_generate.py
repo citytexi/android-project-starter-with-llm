@@ -138,7 +138,7 @@ class ValidateTest(unittest.TestCase):
         self.assertTrue(starter_prd.validate(make_prd(package_name="com.example.app")))
 
     def test_validate_package_name_rejects_bad_format(self):
-        for name in ["Com.club.app", "com.1club.app", "club", "com..app"]:
+        for name in ["Com.club.app", "com.1club.app", "club", "com..app", "io.club.club_moim"]:
             with self.subTest(name=name):
                 self.assertTrue(starter_prd.validate(make_prd(package_name=name)))
 
@@ -195,7 +195,7 @@ class ValidateTest(unittest.TestCase):
                 self.assertIn("36", errs[0])
 
     def test_validate_rejects_class_prefix_starting_with_starter(self):
-        for name in ("io.club.starter", "io.club.starterkit", "io.club.starter_kit"):
+        for name in ("io.club.starter", "io.club.starterkit", "io.club.starter2"):
             with self.subTest(name=name):
                 errs = starter_prd.validate(make_prd(package_name=name))
                 self.assertEqual(len(errs), 1)
@@ -230,7 +230,7 @@ class ValidateTest(unittest.TestCase):
 class HelpersTest(unittest.TestCase):
     def test_class_prefix(self):
         self.assertEqual(generate.class_prefix("io.github.club.devsample"), "Devsample")
-        self.assertEqual(generate.class_prefix("com.a.club_moim"), "ClubMoim")
+        self.assertEqual(generate.class_prefix("com.a.moim"), "Moim")
 
     def test_app_name_is_escaped_for_android_strings(self):
         self.assertEqual(
@@ -752,6 +752,156 @@ class CliTest(unittest.TestCase):
         from unittest import mock
         with mock.patch.object(generate.shutil, "copy2", side_effect=PermissionError("denied")):
             self.assertEqual(self.run_prd(self.BODY % ""), 2)
+
+
+GIT_ENV = {
+    "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t",
+    "GIT_COMMITTER_EMAIL": "t@t", "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1",
+}
+
+
+@unittest.skipUnless(shutil.which("git"), "git is not installed")
+class ExistingRepoTest(unittest.TestCase):
+    """generate.py into the root of a clean git repository (e.g. a fresh GitHub clone)."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.tmp = Path(self._tmp.name)
+        self.repo = self.tmp / "repo"
+        shutil.copytree(FIXTURE, self.repo)
+        env = mock.patch.dict(os.environ, GIT_ENV)
+        env.start()
+        self.addCleanup(env.stop)
+        self.out = self.tmp / "clone"
+        self.out.mkdir()
+        self.git("init", "-b", "develop")
+        (self.out / "README.md").write_text("# clone\n")
+        (self.out / "LICENSE").write_text("MIT\n")
+        (self.out / "build.gradle.kts").write_text("// old\n")
+        (self.out / ".gitignore").write_text("*.log\n")
+        self.git("add", "-A")
+        self.git("-c", "commit.gpgsign=false", "commit", "-m", "Initial commit")
+
+    def git(self, *args):
+        return subprocess.run(
+            ["git", *args], cwd=self.out, check=True, capture_output=True, text=True
+        ).stdout
+
+    def gen(self, git=True, overwrite=False):
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            generate.generate(make_prd(output_dir=self.out), self.repo, overwrite, git=git)
+        return err.getvalue()
+
+    def test_adds_project_keeps_other_files_and_commits_on_a_new_branch(self):
+        err = self.gen()
+        self.assertEqual((self.out / "LICENSE").read_text(), "MIT\n")
+        self.assertEqual((self.out / "README.md").read_text(), "# clone\n")
+        self.assertNotEqual((self.out / "build.gradle.kts").read_text(), "// old\n")
+        self.assertIn("note: replaced existing files", err)
+        self.assertIn("build.gradle.kts", err)
+        self.assertFalse((self.out / generate.MARKER_NAME).exists())
+        self.assertTrue(
+            (self.out / "app/src/main/kotlin/io/github/club/devsample/DevsampleApp.kt").is_file()
+        )
+        self.assertEqual(self.git("branch", "--show-current").strip(), generate.WORK_BRANCH)
+        self.assertEqual(self.git("log", "--format=%s", "develop").splitlines(), ["Initial commit"])
+        log = self.git("log", "--format=%s").splitlines()
+        self.assertEqual(log, ["chore: add Android project from android-project-starter",
+                               "Initial commit"])
+        self.assertEqual(self.git("status", "--porcelain"), "")
+
+    def test_refuses_when_work_branch_exists(self):
+        self.git("branch", generate.WORK_BRANCH)
+        with self.assertRaises(ValueError) as cm:
+            self.gen()
+        self.assertIn(f"branch '{generate.WORK_BRANCH}' already exists", str(cm.exception))
+        self.assertFalse((self.out / "app").exists())
+
+    def test_unborn_repo(self):
+        shutil.rmtree(self.out / ".git")
+        for f in ("README.md", "LICENSE", "build.gradle.kts", ".gitignore"):
+            (self.out / f).unlink()
+        self.git("init", "-b", "main")
+        self.gen()
+        self.assertEqual(self.git("branch", "--show-current").strip(), generate.WORK_BRANCH)
+
+    def test_refuses_dirty_repo(self):
+        (self.out / "README.md").write_text("changed\n")
+        with self.assertRaises(ValueError) as cm:
+            self.gen()
+        self.assertIn("uncommitted or untracked changes", str(cm.exception))
+        (self.out / "README.md").write_text("# clone\n")
+        (self.out / "new.txt").write_text("x")
+        with self.assertRaises(ValueError):
+            self.gen()
+
+    def test_refuses_to_replace_ignored_file(self):
+        (self.out / ".gitignore").write_text("*.log\ngradle.properties\n")
+        self.git("commit", "-am", "ignore")
+        (self.out / "gradle.properties").write_text("mine=1\n")
+        with self.assertRaises(ValueError) as cm:
+            self.gen()
+        self.assertIn("gradle.properties (not tracked by git)", str(cm.exception))
+        self.assertEqual((self.out / "gradle.properties").read_text(), "mine=1\n")
+        self.assertFalse((self.out / "app").exists())
+
+    def test_refuses_directory_where_file_is_needed(self):
+        (self.out / "build.gradle.kts").unlink()
+        (self.out / "build.gradle.kts").mkdir()
+        (self.out / "build.gradle.kts/keep").write_text("x")
+        self.git("add", "-A")
+        self.git("commit", "-m", "dir")
+        with self.assertRaises(ValueError) as cm:
+            self.gen()
+        self.assertIn("build.gradle.kts (directory, file needed)", str(cm.exception))
+
+    def test_subdirectory_of_a_repo_is_not_merge_mode(self):
+        sub = self.out / "sub"
+        sub.mkdir()
+        (sub / "a.txt").write_text("x")
+        self.git("add", "-A")
+        self.git("commit", "-m", "sub")
+        with self.assertRaises(FileExistsError) as cm:
+            generate.generate(make_prd(output_dir=sub), self.repo, False, git=False)
+        self.assertIn("not the root of a git repository", str(cm.exception))
+
+    def test_overwrite_flag_never_deletes_the_repo(self):
+        self.gen(overwrite=True)
+        self.assertTrue((self.out / "LICENSE").is_file())
+        self.assertTrue((self.out / ".git").is_dir())
+
+
+class OutputMessagesTest(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.tmp = Path(self._tmp.name)
+        self.repo = self.tmp / "repo"
+        shutil.copytree(FIXTURE, self.repo)
+        self.out = self.tmp / "out"
+
+    def test_plain_non_empty_dir_has_no_overwrite_hint(self):
+        self.out.mkdir()
+        (self.out / "keep.txt").write_text("x")
+        with self.assertRaises(FileExistsError) as cm:
+            generate.generate(make_prd(output_dir=self.out), self.repo, False, git=False)
+        self.assertNotIn("--overwrite", str(cm.exception))
+        self.assertIn("clean git clone", str(cm.exception))
+
+    def test_generated_dir_suggests_overwrite(self):
+        generate.generate(make_prd(output_dir=self.out), self.repo, False, git=False)
+        with self.assertRaises(FileExistsError) as cm:
+            generate.generate(make_prd(output_dir=self.out), self.repo, False, git=False)
+        self.assertIn("use --overwrite", str(cm.exception))
+
+    def test_leftovers_leave_output_untouched(self):
+        self.out.mkdir()
+        with mock.patch.object(generate, "find_leftovers", return_value=["a.kt:1"]):
+            with self.assertRaises(generate.LeftoverTokensError):
+                generate.generate(make_prd(output_dir=self.out), self.repo, False, git=False)
+        self.assertEqual(list(self.out.iterdir()), [])
 
 
 if __name__ == "__main__":

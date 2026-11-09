@@ -45,4 +45,4 @@ Windows에서는 `gradlew.bat`을 쓴다. Android Studio에서는 프로젝트�
 
 ## 생성 표식
 
-루트의 `.starter-generated`는 `scripts/generate.py`가 만든 디렉터리라는 표식이다. 스타터 레포에서 `--overwrite`로 다시 생성할 때 이 표식이 있는 디렉터리만 지운다. 지우거나 직접 만들지 말고 그대로 둔다. 첫 커밋에 포함돼 있고 빌드에는 영향이 없다.
+루트의 `.starter-generated`는 `scripts/generate.py`가 만든 디렉터리라는 표식이다. 스타터 레포에서 `--overwrite`로 다시 생성할 때 이 표식이 있는 디렉터리만 지운다. 지우거나 직접 만들지 말고 그대로 둔다. 첫 커밋에 포함돼 있고 빌드에는 영향이 없다. 기존 git 저장소에 생성한 프로젝트에는 이 파일이 없다.

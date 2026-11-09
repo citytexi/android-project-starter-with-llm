@@ -9,6 +9,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -165,7 +166,13 @@ def _existing_ancestors(path: Path):
         cur = cur.parent
 
 
-def _check_output_dir(out: Path, repo_root: Path, overwrite: bool) -> None:
+def _check_output_dir(out: Path, repo_root: Path, overwrite: bool) -> str:
+    """Validate the output directory and return how to write into it.
+
+    "new": missing or empty. "replace": created by generate.py and --overwrite given
+    (deleted first). "merge": the root of a clean git repository (for example a fresh
+    clone with README/LICENSE): files are added, same-named tracked files are replaced.
+    """
     out_a = Path(os.path.abspath(out))
     repo_a = Path(os.path.abspath(repo_root))
     # The output must not be the repo, one of its ancestors, the FS root or home.
@@ -179,13 +186,100 @@ def _check_output_dir(out: Path, repo_root: Path, overwrite: bool) -> None:
     # too: a symlink outside the repo can point into one of its subdirectories.
     for candidate in (out_a, out_a.resolve()):
         _check_not_in_repo(candidate, repo_a, out_a)
-    if out_a.exists() and (not out_a.is_dir() or any(out_a.iterdir())):
+    if not out_a.exists() or (out_a.is_dir() and not any(out_a.iterdir())):
+        return "new"
+    if out_a.is_dir() and (out_a / MARKER_NAME).is_file():
         if not overwrite:
-            raise FileExistsError(f"output directory is not empty: {out_a} (use --overwrite)")
-        if not out_a.is_dir() or not (out_a / MARKER_NAME).is_file():
-            raise ValueError(
-                f"refusing to delete a directory not created by generate.py: {out_a}"
+            raise FileExistsError(
+                f"output directory is not empty: {out_a} "
+                "(it was created by generate.py: use --overwrite to replace it)"
             )
+        return "replace"
+    clean = _git_root_clean(out_a) if out_a.is_dir() else None
+    if clean is True:
+        if _git_branch_exists(out_a, WORK_BRANCH):
+            raise ValueError(
+                f"branch '{WORK_BRANCH}' already exists in {out_a}: delete or rename it, "
+                "or merge it first"
+            )
+        return "merge"
+    if clean is False:
+        raise ValueError(
+            f"output directory is a git repository with uncommitted or untracked changes: "
+            f"{out_a} (commit or stash them first)"
+        )
+    if overwrite:
+        raise ValueError(f"refusing to delete a directory not created by generate.py: {out_a}")
+    raise FileExistsError(
+        f"output directory is not empty and is not the root of a git repository: {out_a} "
+        "(use an empty directory or a clean git clone)"
+    )
+
+
+def _git_out(cwd: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", *args], cwd=cwd, check=True,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, errors="replace",
+    ).stdout
+
+
+def _git_branch_exists(out: Path, branch: str) -> bool:
+    try:
+        subprocess.run(
+            ["git", "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}"], cwd=out,
+            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+    except subprocess.CalledProcessError:
+        return False
+    return True
+
+
+def _git_root_clean(out: Path) -> bool | None:
+    """None if out is not the root of a git work tree, else whether it is clean."""
+    if not (out / ".git").exists():
+        return None
+    try:
+        top = _git_out(out, "rev-parse", "--show-toplevel").strip()
+        status = _git_out(out, "status", "--porcelain", "--untracked-files=all")
+    except (subprocess.CalledProcessError, OSError) as e:
+        detail = (getattr(e, "stderr", None) or str(e)).strip()
+        raise ValueError(f"cannot read the git repository in {out}: {detail}") from e
+    if not _same(Path(top), out):
+        return None
+    return status.strip() == ""
+
+
+def _merge_conflicts(staging: Path, out: Path) -> tuple[list[str], list[str]]:
+    """(replaced, blocking) relative paths for copying staging into an existing repo.
+
+    replaced: files git tracks that the template replaces (old versions stay in history).
+    blocking: paths that cannot be replaced safely (ignored files, directories,
+    symlinks, a file where the template needs a directory).
+    """
+    tracked = set(_git_out(out, "ls-files", "-z").split("\0"))
+    replaced, blocking = [], []
+    for p in _iter_files(staging):
+        rel = p.relative_to(staging)
+        cur = out
+        for i, part in enumerate(rel.parts):
+            cur = cur / part
+            last = i == len(rel.parts) - 1
+            if cur.is_symlink():
+                blocking.append(f"{Path(*rel.parts[: i + 1]).as_posix()} (symlink)")
+                break
+            if not cur.exists():
+                break
+            if not last and not cur.is_dir():
+                blocking.append(f"{Path(*rel.parts[: i + 1]).as_posix()} (file, directory needed)")
+                break
+            if last:
+                if cur.is_dir():
+                    blocking.append(f"{rel.as_posix()} (directory, file needed)")
+                elif rel.as_posix() in tracked:
+                    replaced.append(rel.as_posix())
+                else:
+                    blocking.append(f"{rel.as_posix()} (not tracked by git)")
+    return replaced, sorted(set(blocking))
 
 
 def _check_not_in_repo(path: Path, repo_a: Path, shown: Path) -> None:
@@ -421,25 +515,40 @@ def _sort_imports_in_tree(root: Path) -> None:
             _write_text(p, new)
 
 
+_COMMIT_MESSAGES = {
+    "init": "chore: initial project from android-project-starter",
+    "merge": "chore: add Android project from android-project-starter",
+}
 GIT_INIT_HINT = (
     'git init -b main && git add -A && git update-index --chmod=+x gradlew && '
-    'git commit -m "chore: initial project from android-project-starter"'
+    f'git commit -m "{_COMMIT_MESSAGES["init"]}"'
+)
+# Generating into an existing repository commits on a new branch, never on the
+# checked-out one, so the user can review and merge it (for example through a PR).
+WORK_BRANCH = "chore/android-project-setup"
+GIT_MERGE_HINT = (
+    f'git checkout -b {WORK_BRANCH} && git add -A && git update-index --chmod=+x gradlew && '
+    f'git commit -m "{_COMMIT_MESSAGES["merge"]}"'
 )
 
 
-GIT_COMMANDS = (
-    ["init", "-b", "main"],
-    ["add", "-A"],
-    # Windows checkouts have no exec bit: record it so gradlew runs on macOS/Linux/CI.
-    ["update-index", "--chmod=+x", "gradlew"],
-    # The user's signing setup or global hooks must not block or alter the first commit.
-    ["-c", "commit.gpgsign=false", "commit", "--no-verify",
-     "-m", "chore: initial project from android-project-starter"],
-)
+def _git_commands(existing_repo: bool) -> list[list[str]]:
+    msg = _COMMIT_MESSAGES["merge" if existing_repo else "init"]
+    return [
+        ["checkout", "-b", WORK_BRANCH] if existing_repo else ["init", "-b", "main"],
+        ["add", "-A"],
+        # Windows checkouts have no exec bit: record it so gradlew runs on macOS/Linux/CI.
+        ["update-index", "--chmod=+x", "gradlew"],
+        # The user's signing setup or global hooks must not block or alter the commit.
+        ["-c", "commit.gpgsign=false", "commit", "--no-verify", "-m", msg],
+    ]
 
 
-def _git_init(out: Path) -> None:
-    for args in GIT_COMMANDS:
+GIT_COMMANDS = tuple(_git_commands(False))
+
+
+def _git_init(out: Path, existing_repo: bool = False) -> None:
+    for args in _git_commands(existing_repo):
         if args[0] == "update-index" and not (out / "gradlew").is_file():
             continue
         # Output is captured and shown only when a command fails (see generate()).
@@ -496,9 +605,21 @@ def find_prefix_clashes(roots: list[Path], prefix: str) -> list[str]:
     return clashes
 
 
+def _build(staging: Path, prd: Prd, roots: list[Path], prefix: str) -> None:
+    for root in roots:
+        _copy_tree(root, staging)
+    _rename_package_dirs(staging, prd.package_name, prefix)
+    _replace_text(staging, prd, prefix)
+    _sort_imports_in_tree(staging)
+    leftovers = find_leftovers(staging)
+    if leftovers:
+        raise LeftoverTokensError(leftovers)
+    _apply_prd_values(staging, prd)
+
+
 def generate(prd: Prd, repo_root: Path, overwrite: bool, git: bool = True) -> Path:
     out = prd.output_dir
-    _check_output_dir(out, repo_root, overwrite)
+    mode = _check_output_dir(out, repo_root, overwrite)
     prefix = effective_prefix(prd)
     roots = _source_roots(prd, repo_root)
     # Checked on the sources, before anything is written or deleted.
@@ -508,30 +629,46 @@ def generate(prd: Prd, repo_root: Path, overwrite: bool, git: bool = True) -> Pa
             f"class prefix '{prefix}' clashes with imported names; set classPrefix in the "
             "PRD to another PascalCase name (e.g. the app name):\n  " + "\n  ".join(clashes)
         )
-    if out.exists():
-        _rmtree(out)
-    out.mkdir(parents=True)
-    # Written first so a half-finished output (exit 3, I/O error) can still be overwritten.
-    (out / MARKER_NAME).write_text(MARKER_TEXT, encoding="utf-8")
-    for root in roots:
-        _copy_tree(root, out)
-    _rename_package_dirs(out, prd.package_name, prefix)
-    _replace_text(out, prd, prefix)
-    _sort_imports_in_tree(out)
-    leftovers = find_leftovers(out)
-    if leftovers:
-        raise LeftoverTokensError(leftovers)
-    _apply_prd_values(out, prd)
+    # Build in a temporary directory: the output is not touched until the project is
+    # complete (exit 3 and template errors leave it as it was).
+    with tempfile.TemporaryDirectory(prefix="starter-generate-") as tmp:
+        staging = Path(tmp) / "project"
+        staging.mkdir()
+        _build(staging, prd, roots, prefix)
+        if mode == "merge":
+            replaced, blocking = _merge_conflicts(staging, out)
+            if blocking:
+                raise ValueError(
+                    f"cannot add the project to the git repository {Path(os.path.abspath(out))}: "
+                    "these paths are in the way (move or delete them first):\n  "
+                    + "\n  ".join(blocking)
+                )
+            shutil.copytree(staging, out, symlinks=True, dirs_exist_ok=True)
+            if replaced:
+                print(
+                    "note: replaced existing files (the old versions stay in git history): "
+                    + ", ".join(replaced),
+                    file=sys.stderr,
+                )
+        else:
+            if mode == "replace":
+                _rmtree(out)
+            out.mkdir(parents=True, exist_ok=True)
+            # Written first so a half-copied output (I/O error) can still be overwritten.
+            (out / MARKER_NAME).write_text(MARKER_TEXT, encoding="utf-8")
+            shutil.copytree(staging, out, symlinks=True, dirs_exist_ok=True)
     if git:
+        existing = mode == "merge"
         try:
-            _git_init(out)
+            _git_init(out, existing_repo=existing)
         except (subprocess.CalledProcessError, OSError) as e:
             output = getattr(e, "output", None)
             if output:
                 print(output.rstrip(), file=sys.stderr)
+            hint = GIT_MERGE_HINT if existing else GIT_INIT_HINT
             print(
                 f"warning: git init/commit failed ({e}); the project was generated. "
-                f"Configure git (user.name/user.email) and run: {GIT_INIT_HINT}",
+                f"Configure git (user.name/user.email) and run: {hint}",
                 file=sys.stderr,
             )
     return out
