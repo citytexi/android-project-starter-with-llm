@@ -22,7 +22,7 @@ LLM 도구(Claude Code, Cursor, Codex)와 팀원이 이 프로젝트에서 지�
 | `:core:network` | Android | Retrofit, OkHttp, `SampleApi`, `BuildConfig.BASE_URL` |
 | `:core:database` | Android | Room. 스키마를 바꿀 때는 `StarterDatabase` KDoc(버전, AutoMigration)과 `StarterDatabaseMigrationTest`를 따른다 |
 | `:core:datastore` | Android | DataStore 설정, `SecureStore` |
-| `:core:common` | JVM | 공용 타입(`AppResult`, `HttpStatusException` 등), dispatcher qualifier와 Hilt 바인딩(`DispatcherModule`, JVM용 `hilt-core`) |
+| `:core:common` | JVM | 공용 타입과 함수(`runSuspendCatching`, `HttpStatusException` 등), dispatcher qualifier와 Hilt 바인딩(`DispatcherModule`, JVM용 `hilt-core`) |
 | `:core:testing:jvm` | JVM | JVM 테스트 도구 |
 | `:core:testing:android` | Android | 계측/Robolectric 테스트 도구 |
 | `:konsist` | JVM | 아키텍처 규칙 테스트(소스 경로만 읽음) |
@@ -50,6 +50,13 @@ Konsist(`konsist/src/test`)가 import도 검사한다.
 - `feature`는 `com.example.starter.data`, `core.network`, `core.database`, `core.datastore` 패키지를 import하지 않는다(와일드카드 포함).
 - `domain`은 `android`, `androidx`를 import하지 않는다.
 - ViewModel의 `MutableMviContainer` 프로퍼티는 `private`이어야 한다(4장 참고).
+
+데이터는 항상 **Repository → UseCase → ViewModel** 순서로 흐른다. Konsist가 강제한다.
+
+- Repository(`domain`의 인터페이스, `data`의 구현)는 실패하면 예외를 던진다. `Result`를 반환하지 않는다.
+- UseCase의 `suspend operator fun invoke`는 반환 타입을 `Result<T>`로 명시하고 `runSuspendCatching { }`(`core:common`)으로 감싼다. Repository를 그대로 부르기만 하는 경우에도 UseCase를 만든다.
+- ViewModel은 UseCase만 주입받는다. Repository를 주입하지 않는다. 결과는 `onSuccess`/`onFailure`로 처리한다.
+- `runSuspendCatching`은 `CancellationException`을 다시 던진다(stdlib `runCatching`은 취소를 실패로 바꿔 버린다). 블록에 suspend 호출이 없으면 stdlib `runCatching`을 쓴다.
 
 ## 3. 네이밍 규칙
 
@@ -99,11 +106,11 @@ viewModel.container.collectSideEffect { effect -> ... }
    - 이름을 바꾸면 `domain`에 없는 `Sample*` 타입을 참조하는 파일이 깨진다: `SampleViewModel`, `SampleUiState`, `SampleScreen`, `SampleViewModelTest`, `SampleScreenScreenshotTest`(`domain.model.SampleItem`, `Observe/Refresh/...SampleUseCase`, `FakeSampleRepository` 등). 규칙: `domain.*Sample*` import를 모두 새 feature의 타입으로 다시 쓰거나 지운다. 데이터가 필요 없으면 해당 파일과 의존(`domain`)을 비운다.
 2. `settings.gradle.kts`에 `include(":feature:<name>")`을 추가한다. `app/build.gradle.kts`에도 `implementation(project(":feature:<name>"))`을 추가한다.
 3. 데이터가 필요하면 아래 순서로 만든다.
-   - `domain`: 모델, `<Name>Repository` 인터페이스, `<Action><Name>UseCase`(`operator fun invoke`)
+   - `domain`: 모델, `<Name>Repository` 인터페이스(실패 시 예외), `<Action><Name>UseCase`(`operator fun invoke`. suspend면 `Result<T>` 반환, `runSuspendCatching`으로 감쌈)
    - `data`: `<Name>RepositoryImpl`, `DataModule`에 `@Binds` 추가
    - `feature`: `@HiltViewModel` ViewModel은 UseCase만 주입받는다. Repository를 직접 주입하지 않는다.
    - 새 데이터 소스(API, DB, 설정)는 아래 "데이터 소스 추가"를 따른다.
-   - 오류 표시: `data`는 Retrofit `HttpException`을 `mapHttpErrors { }`로 `HttpStatusException`(`IOException`)으로 바꾼다. ViewModel은 `AppResult.Failure`의 예외를 `SampleError` 같은 타입으로만 바꾸고(`HttpStatusException`이면 서버, 그 밖의 `IOException`이면 네트워크, 나머지는 알 수 없음. `HttpStatusException`이 `IOException`의 하위 타입이라 먼저 검사한다) 문구는 들고 있지 않는다. 화면 쪽이 문구를 고른다(sample은 `SampleSideEffect.ShowError`를 Route가 스낵바로 보여 준다).
+   - 오류 표시: `data`는 Retrofit `HttpException`을 `mapHttpErrors { }`로 `HttpStatusException`(`IOException`)으로 바꾼다. ViewModel은 UseCase가 돌려준 `Result`의 실패(`onFailure`) 예외를 `SampleError` 같은 타입으로만 바꾸고(`HttpStatusException`이면 서버, 그 밖의 `IOException`이면 네트워크, 나머지는 알 수 없음. `HttpStatusException`이 `IOException`의 하위 타입이라 먼저 검사한다) 문구는 들고 있지 않는다. 화면 쪽이 문구를 고른다(sample은 `SampleSideEffect.ShowError`를 Route가 스낵바로 보여 준다).
 4. nav 등록. **먼저 프로젝트가 쓰는 variant를 확인한다.** `core/navigation/build.gradle.kts`에 `navigation-compose`(`androidx.navigation.compose`)가 있으면 nav2, `navigation3`가 있으면 nav3다.
    - 시작 화면은 nav2는 `StarterNavHost`의 `startDestination = ...`, nav3는 `rememberNavBackStack(...)`에서 정한다.
 
@@ -179,7 +186,7 @@ interface SecureStore {
 - `feature`는 `core:datastore`를 쓸 수 없다. `data`의 `RepositoryImpl`에서 주입받고, `domain`의 Repository 인터페이스로 감싸 노출한다.
 - 키가 사라졌거나(재설치, 백업 복원) 값이 손상되면 값을 지우고 `null`을 돌려준다. 호출부는 `null`을 "로그인 필요" 같은 재입력 상태로 처리한다.
 - Keystore가 잠깐 실패하거나(`KeyStoreException`, `ProviderException`) 파일을 읽지 못하면 값은 지우지 않고 `null`을 돌려준다. 다음 호출에서 다시 읽힐 수 있다.
-- `put`은 파일 쓰기(`IOException`)나 암호화(`GeneralSecurityException`, `ProviderException`)가 실패하면 예외를 던진다. `data`에서 `appRunCatching`으로 감싼다.
+- `put`은 파일 쓰기(`IOException`)나 암호화(`GeneralSecurityException`, `ProviderException`)가 실패하면 예외를 던진다. `data`의 RepositoryImpl은 이 예외를 그대로 두고, 그 Repository를 부르는 UseCase가 `runSuspendCatching`으로 감싼다.
 - DataStore 주입은 `@SecurePreferences`/`@SettingsPreferences` qualifier로 구분한다.
 - 모든 호출은 `suspend`다. 메인 스레드 블로킹을 하지 않는다.
 
