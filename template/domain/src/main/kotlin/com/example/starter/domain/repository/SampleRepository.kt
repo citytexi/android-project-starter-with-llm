@@ -1,6 +1,5 @@
 package com.example.starter.domain.repository
 
-import com.example.starter.core.common.AppResult
 import com.example.starter.domain.model.SampleItem
 import kotlinx.coroutines.flow.Flow
 
@@ -9,5 +8,6 @@ interface SampleRepository {
 
     fun observeLastRefreshedAt(): Flow<Long?>
 
-    suspend fun refresh(): AppResult<Unit>
+    /** Pulls items from the network into the cache. Throws on failure; `RefreshSampleItemsUseCase` wraps it. */
+    suspend fun refresh()
 }

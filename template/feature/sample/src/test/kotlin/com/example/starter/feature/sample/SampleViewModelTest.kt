@@ -1,7 +1,6 @@
 package com.example.starter.feature.sample
 
 import app.cash.turbine.test
-import com.example.starter.core.common.AppResult
 import com.example.starter.core.common.HttpStatusException
 import com.example.starter.core.testing.MainDispatcherRule
 import com.example.starter.domain.model.SampleItem
@@ -75,7 +74,7 @@ class SampleViewModelTest {
     @Test
     fun `IOException posts Network error and stops refreshing`() =
         runTest {
-            repository.refreshResult = AppResult.Failure(IOException("offline"))
+            repository.refreshError = IOException("offline")
             val viewModel = viewModel()
             collect(viewModel)
 
@@ -86,7 +85,7 @@ class SampleViewModelTest {
     @Test
     fun `HttpStatusException posts Server error, not Network`() =
         runTest {
-            repository.refreshResult = AppResult.Failure(HttpStatusException(503, RuntimeException("boom")))
+            repository.refreshError = HttpStatusException(503, RuntimeException("boom"))
             val viewModel = viewModel()
             collect(viewModel)
 
@@ -96,7 +95,7 @@ class SampleViewModelTest {
     @Test
     fun `other failures post Unknown error`() =
         runTest {
-            repository.refreshResult = AppResult.Failure(IllegalStateException("bug"))
+            repository.refreshError = IllegalStateException("bug")
             val viewModel = viewModel()
             collect(viewModel)
 

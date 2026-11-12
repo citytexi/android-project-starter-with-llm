@@ -1,7 +1,6 @@
 package com.example.starter.core.ui.mvi
 
-import com.example.starter.core.common.AppResult
-import com.example.starter.core.common.appRunCatching
+import com.example.starter.core.common.runSuspendCatching
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -88,7 +87,7 @@ class MutableMviContainer<S : UiState, E : UiSideEffect>(
      *   returns `null` (for example a double-tapped button). `null` disables the check.
      * @param onError called with an unexpected exception thrown by [block]. Use it to post an
      *   error effect. Without it the exception propagates as in a plain `scope.launch`.
-     *   `AppResult.Failure` is a value, not an exception: handle it in [block].
+     *   A UseCase's `Result.failure` is a value, not an exception: handle it in [block].
      */
     fun launch(
         key: Any? = null,
@@ -102,9 +101,8 @@ class MutableMviContainer<S : UiState, E : UiSideEffect>(
                     return@launch
                 }
                 // coroutineScope rethrows a failed child's own exception here instead of cancelling
-                // this coroutine first. appRunCatching rethrows CancellationException.
-                val result = appRunCatching { coroutineScope { block() } }
-                if (result is AppResult.Failure) onError(result.error)
+                // this coroutine first. runSuspendCatching rethrows CancellationException.
+                runSuspendCatching { coroutineScope { block() } }.onFailure(onError)
             }
         if (key != null) {
             synchronized(lock) {

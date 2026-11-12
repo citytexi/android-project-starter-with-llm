@@ -2,7 +2,6 @@ package com.example.starter.feature.sample
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.starter.core.common.AppResult
 import com.example.starter.core.common.HttpStatusException
 import com.example.starter.core.ui.mvi.MutableMviContainer
 import com.example.starter.core.ui.mvi.MviContainer
@@ -45,11 +44,9 @@ class SampleViewModel
             // The key ignores a second Refresh while one is running.
             _container.launch(key = SampleIntent.Refresh) {
                 _container.updateState { copy(isRefreshing = true) }
-                val failure = refreshSampleItems() as? AppResult.Failure
+                val result = refreshSampleItems()
                 _container.updateState { copy(isRefreshing = false) }
-                if (failure != null) {
-                    _container.postSideEffect(SampleSideEffect.ShowError(failure.error.toSampleError()))
-                }
+                result.onFailure { _container.postSideEffect(SampleSideEffect.ShowError(it.toSampleError())) }
             }
         }
     }
