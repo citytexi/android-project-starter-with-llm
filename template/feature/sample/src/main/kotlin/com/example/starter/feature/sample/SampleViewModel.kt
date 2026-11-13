@@ -2,19 +2,14 @@ package com.example.starter.feature.sample
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.starter.core.common.AppResult
 import com.example.starter.core.common.HttpStatusException
+import com.example.starter.core.ui.mvi.MutableMviContainer
+import com.example.starter.core.ui.mvi.MviContainer
 import com.example.starter.domain.usecase.ObserveLastRefreshedAtUseCase
 import com.example.starter.domain.usecase.ObserveSampleItemsUseCase
 import com.example.starter.domain.usecase.RefreshSampleItemsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import java.io.IOException
 import javax.inject.Inject
 
@@ -26,45 +21,33 @@ class SampleViewModel
         observeLastRefreshedAt: ObserveLastRefreshedAtUseCase,
         private val refreshSampleItems: RefreshSampleItemsUseCase,
     ) : ViewModel() {
-        private val refreshState = MutableStateFlow(RefreshState())
+        private val _container = MutableMviContainer<SampleUiState, SampleSideEffect>(viewModelScope, SampleUiState())
 
-        val uiState: StateFlow<SampleUiState> =
-            combine(observeSampleItems(), observeLastRefreshedAt(), refreshState) { items, lastRefreshedAt, refresh ->
-                SampleUiState(
-                    items = items,
-                    lastRefreshedAt = lastRefreshedAt,
-                    isRefreshing = refresh.isRefreshing,
-                    error = refresh.error,
-                )
-            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), SampleUiState())
+        /** Read-only for the Route: state and side effects, no way to change them. */
+        val container: MviContainer<SampleUiState, SampleSideEffect> = _container
 
-        fun onAction(action: SampleAction) {
-            when (action) {
-                SampleAction.Refresh -> refresh()
-                SampleAction.DismissError -> refreshState.update { it.copy(error = null) }
+        init {
+            _container.launchWhileSubscribed(
+                source = { combine(observeSampleItems(), observeLastRefreshedAt(), ::Pair) },
+            ) { (items, lastRefreshedAt) ->
+                _container.updateState { copy(items = items, lastRefreshedAt = lastRefreshedAt) }
+            }
+        }
+
+        fun onIntent(intent: SampleIntent) {
+            when (intent) {
+                SampleIntent.Refresh -> refresh()
             }
         }
 
         private fun refresh() {
-            if (refreshState.value.isRefreshing) return
-            refreshState.update { it.copy(isRefreshing = true, error = null) }
-            viewModelScope.launch {
-                val failure = refreshSampleItems() as? AppResult.Failure
-                refreshState.value =
-                    RefreshState(
-                        isRefreshing = false,
-                        error = failure?.error?.toSampleError(),
-                    )
+            // The key ignores a second Refresh while one is running.
+            _container.launch(key = SampleIntent.Refresh) {
+                _container.updateState { copy(isRefreshing = true) }
+                val result = refreshSampleItems()
+                _container.updateState { copy(isRefreshing = false) }
+                result.onFailure { _container.postSideEffect(SampleSideEffect.ShowError(it.toSampleError())) }
             }
-        }
-
-        private data class RefreshState(
-            val isRefreshing: Boolean = false,
-            val error: SampleError? = null,
-        )
-
-        private companion object {
-            const val STOP_TIMEOUT_MILLIS = 5_000L
         }
     }
 

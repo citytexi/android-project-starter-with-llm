@@ -1,13 +1,15 @@
 package com.example.starter.feature.sample
 
+import com.example.starter.core.ui.mvi.UiIntent
+import com.example.starter.core.ui.mvi.UiSideEffect
+import com.example.starter.core.ui.mvi.UiState
 import com.example.starter.domain.model.SampleItem
 
 data class SampleUiState(
     val items: List<SampleItem> = emptyList(),
     val lastRefreshedAt: Long? = null,
     val isRefreshing: Boolean = false,
-    val error: SampleError? = null,
-)
+) : UiState
 
 /**
  * Why the last refresh failed. The ViewModel never holds display text: [SampleScreen] maps each
@@ -24,8 +26,13 @@ sealed interface SampleError {
     data object Unknown : SampleError
 }
 
-sealed interface SampleAction {
-    data object Refresh : SampleAction
+sealed interface SampleIntent : UiIntent {
+    data object Refresh : SampleIntent
+}
 
-    data object DismissError : SampleAction
+sealed interface SampleSideEffect : UiSideEffect {
+    /** A refresh failed. The Route shows it in a snackbar; the list stays as it was. */
+    data class ShowError(
+        val error: SampleError,
+    ) : SampleSideEffect
 }

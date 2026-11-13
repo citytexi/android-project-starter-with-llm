@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
-import com.example.starter.core.common.AppResult
 import com.example.starter.core.common.HttpStatusException
 import com.example.starter.core.database.StarterDatabase
 import com.example.starter.core.database.dao.SampleItemDao
@@ -31,7 +30,7 @@ import retrofit2.HttpException
 import retrofit2.Response
 import java.io.File
 import kotlin.test.assertEquals
-import kotlin.test.assertIs
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 
 @RunWith(RobolectricTestRunner::class)
@@ -83,23 +82,22 @@ class SampleRepositoryImplTest {
                 FakeApi { listOf(SampleItemResponse(2, "b"), SampleItemResponse(1, "a")) }
             val repository = repository(api, settings())
 
-            val result = repository.refresh()
+            repository.refresh()
 
-            assertEquals(AppResult.Success(Unit), result)
             assertEquals(listOf(SampleItem(1, "a"), SampleItem(2, "b")), repository.observeItems().first())
             assertEquals(NOW, repository.observeLastRefreshedAt().first())
         }
 
     @Test
-    fun `refresh failure keeps old cache and returns Failure`() =
+    fun `refresh failure keeps old cache and throws`() =
         runTest {
             db.sampleItemDao().upsertAll(listOf(SampleItemEntity(9, "old")))
             val failure = IllegalStateException("offline")
             val repository = repository(FakeApi { throw failure }, settings())
 
-            val result = repository.refresh()
+            val error = assertFailsWith<IllegalStateException> { repository.refresh() }
 
-            assertEquals(failure, assertIs<AppResult.Failure>(result).error)
+            assertEquals("offline", error.message)
             assertEquals(listOf(SampleItem(9, "old")), repository.observeItems().first())
             assertNull(repository.observeLastRefreshedAt().first())
         }
@@ -110,9 +108,9 @@ class SampleRepositoryImplTest {
             val api = FakeApi { throw HttpException(Response.error<Unit>(503, "".toResponseBody())) }
             val repository = repository(api, settings())
 
-            val error = assertIs<AppResult.Failure>(repository.refresh()).error
+            val error = assertFailsWith<HttpStatusException> { repository.refresh() }
 
-            assertEquals(503, assertIs<HttpStatusException>(error).code)
+            assertEquals(503, error.code)
         }
 
     @Test
@@ -128,11 +126,8 @@ class SampleRepositoryImplTest {
             val api = FakeApi { listOf(SampleItemResponse(1, "a")) }
             val repository = repository(api, settings(), failingDao)
 
-            val result = repository.refresh()
-
             // Coroutine stack-trace recovery may copy the exception, so compare type and message.
-            val error = assertIs<AppResult.Failure>(result).error
-            assertIs<IllegalStateException>(error)
+            val error = assertFailsWith<IllegalStateException> { repository.refresh() }
             assertEquals("disk full", error.message)
             assertEquals(listOf(SampleItem(9, "old")), repository.observeItems().first())
             assertNull(repository.observeLastRefreshedAt().first())
