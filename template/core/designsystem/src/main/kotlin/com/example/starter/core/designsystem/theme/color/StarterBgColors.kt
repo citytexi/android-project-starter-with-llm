@@ -1,0 +1,53 @@
+package com.example.starter.core.designsystem.theme.color
+
+import androidx.compose.runtime.Immutable
+import androidx.compose.ui.graphics.Color
+
+/** Background roles. `*Pressed` is the same surface while pressed. */
+@Immutable
+data class StarterBgColors(
+    val brandSolid: Color,
+    val brandSolidPressed: Color,
+    val brandWeak: Color,
+    val brandWeakPressed: Color,
+    val criticalSolid: Color,
+    val criticalSolidPressed: Color,
+    val criticalWeak: Color,
+    val criticalWeakPressed: Color,
+    val disabled: Color,
+    val informativeSolid: Color,
+    val informativeSolidPressed: Color,
+    val informativeWeak: Color,
+    val informativeWeakPressed: Color,
+    val layerBasement: Color,
+    val layerDefault: Color,
+    val layerDefaultPressed: Color,
+    val layerFloating: Color,
+    val layerFloatingPressed: Color,
+    val neutralInverted: Color,
+    val neutralInvertedPressed: Color,
+    val neutralMuted: Color,
+    val neutralSolid: Color,
+    val neutralSolidPressed: Color,
+    val neutralSolidMuted: Color,
+    val neutralSolidMutedPressed: Color,
+    val neutralSubtle: Color,
+    val neutralWeak: Color,
+    val neutralWeakAlpha: Color,
+    val neutralWeakAlphaPressed: Color,
+    val neutralWeakPressed: Color,
+    val overlay: Color,
+    val overlayMuted: Color,
+    val positiveSolid: Color,
+    val positiveSolidPressed: Color,
+    val positiveWeak: Color,
+    val positiveWeakPressed: Color,
+    val transparent: Color,
+    val transparentPressed: Color,
+    val transparentSelected: Color,
+    val transparentSelectedPressed: Color,
+    val warningSolid: Color,
+    val warningSolidPressed: Color,
+    val warningWeak: Color,
+    val warningWeakPressed: Color,
+)

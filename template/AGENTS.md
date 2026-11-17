@@ -16,7 +16,7 @@ LLM 도구(Claude Code, Cursor, Codex)와 팀원이 이 프로젝트에서 지�
 | `:feature:sample` | Android | 예시 화면. Route, Screen, ViewModel, UiState/Intent/SideEffect. 새 feature의 복사 원본 |
 | `:domain` | JVM | 모델, `*Repository` 인터페이스, `*UseCase`. Android 의존 금지 |
 | `:data` | Android | `*RepositoryImpl`, Hilt 바인딩(`DataModule`) |
-| `:core:designsystem` | Android | 테마, 공용 컴포넌트(`LoadingContent` 포함) |
+| `:core:designsystem` | Android | 테마와 디자인 토큰(11장), 공용 컴포넌트(`LoadingContent` 포함) |
 | `:core:ui` | Android | feature와 디자인 시스템이 함께 쓰는 UI 유틸, MVI 컨테이너(`core.ui.mvi`). Material 3와 디자인 시스템에 의존하지 않음 |
 | `:core:navigation` | Android | route/key 정의. nav 라이브러리를 `api`로 노출 |
 | `:core:network` | Android | Retrofit, OkHttp, `SampleApi`, `BuildConfig.BASE_URL` |
@@ -216,3 +216,21 @@ interface SecureStore {
 - base URL: 루트 `gradle.properties`의 `starter.baseUrl`. `core:network`가 `BuildConfig.BASE_URL`로 읽는다. 값은 `/`로 끝나야 한다. 처음에는 PRD에서 넣은 값이 들어 있다. 실제 서버 주소가 아니면 바꾼다.
 - 경로: `core/network/.../SampleApi.kt`의 `@GET("sample/items")`.
 - 응답 모양이 바뀌면 DTO, Room entity, `SampleRepositoryImpl`의 매핑, `SampleItem`을 순서대로 맞추고 관련 테스트를 고친다.
+
+## 11. 디자인 토큰
+
+`core:designsystem`의 `theme/` 아래에 토큰이 있다. 화면과 컴포넌트는 `StarterTheme.color`, `.typography`, `.dimension`, `.radius`, `.shadow`, `.motion`으로 읽는다(`MaterialTheme`처럼 `StarterTheme { }` 안에서).
+
+| 패키지 | 내용 |
+|---|---|
+| `theme.color` | `Palette`(원색 단계, internal), `StarterColors`(`bg`/`fg`/`stroke` 용도 색), `LightStarterColors`/`DarkStarterColors`(용도 → 팔레트 연결) |
+| `theme.dimension` | `StarterDimension`(4dp 간격 단계 `xN`, 용도 간격 `spacingX`/`spacingY`), `StarterRadius` |
+| `theme.typography` | `StarterTypography`(`t1`~`t14` 크기 × Regular/Medium/Bold), `AppFontFamily` |
+| `theme.motion` | `StarterMotion`(`duration` 밀리초, `timingFunction` easing) |
+| `theme.shadow` | `StarterShadows`(`s1`~`s3`), `Modifier.starterShadow(token, shape)` |
+| `theme` | `StarterTheme`, `MaterialMapping`(토큰 → Material 3 `ColorScheme`/`Typography`/`Shapes`) |
+
+- 값은 중립 기본값이다. 앱 브랜드에 맞게 `Palette`와 Light/Dark 연결, 각 `Default*` 값을 바꾼다. 화면 코드에 색이나 dp 값을 직접 쓰지 않고 토큰을 읽는다.
+- 브랜드 폰트는 `res/font`에 넣고 `AppFontFamily`를 바꾼다.
+- Material 3 컴포넌트도 같은 값을 쓰도록 `MaterialMapping`이 `ColorScheme`의 모든 칸을 토큰으로 채운다. 토큰을 추가하거나 이름을 바꾸면 이 연결도 맞춘다.
+- 테스트가 토큰 사이의 관계를 지킨다. `ColorContrastTest`(solid 배경 위 글자 대비 4.5:1 이상), `FoundationScaleTest`(용도 간격은 간격 단계 중 하나, 그림자·시간 단계는 오름차순), `StarterThemeTest`(Material 연결, 다크 선택, 테마 밖 기본값은 라이트). 값을 바꾸다 실패하면 테스트를 고치지 말고 값을 고친다.
