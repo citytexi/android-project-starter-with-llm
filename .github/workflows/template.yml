@@ -2,9 +2,21 @@ name: template
 
 # 스펙은 main 을 기준으로 하지만 이 레포의 기본 브랜치는 현재 develop 이다.
 # 그래서 두 브랜치를 대상으로 한 PR 에서 모두 돌린다.
+# develop PR 은 자주 올라오므로 generate 잡이 생성물의 assembleDebug 만 확인한다.
+# main PR(release)과 수동 실행은 verify.py 로 verifyStarter 전체를 돌린다.
 on:
   pull_request:
     branches: [ main, develop ]
+    # 빌드와 무관한 문서만 바뀐 PR 은 건너뛴다.
+    # scripts/fixtures/*.prd.md 는 생성 입력이므로 '**.md' 로 넓게 빼지 않는다.
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+      - 'AGENTS.md'
+      - 'CLAUDE.md'
+      - 'LICENSE'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/PULL_REQUEST_TEMPLATE.md'
   workflow_dispatch:
 
 permissions:
@@ -85,7 +97,14 @@ jobs:
       - name: Generate project
         run: python3 scripts/generate.py --prd scripts/fixtures/dev-${{ matrix.nav }}.prd.md
 
+      # develop PR: 빌드 성공 여부만 본다 (release 빌드, 스크린샷, 테스트, lint 는 main PR 에서)
+      - name: Build generated project (debug)
+        if: github.event_name == 'pull_request' && github.base_ref == 'develop'
+        working-directory: build/dev/${{ matrix.nav }}
+        run: ./gradlew assembleDebug
+
       - name: Verify generated project
+        if: github.event_name != 'pull_request' || github.base_ref != 'develop'
         run: python3 scripts/verify.py build/dev/${{ matrix.nav }}
 
       # 버전 고정 + sha256 검증은 로컬 액션 한 곳에서 관리한다
