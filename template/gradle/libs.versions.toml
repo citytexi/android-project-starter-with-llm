@@ -64,6 +64,8 @@ mockk = "1.14.11"
 turbine = "1.2.1"
 robolectric = "4.17"
 roborazzi = "1.77.0"
+# Matched to Roborazzi 1.77.0: 0.10.0 fails with NoSuchMethodError on it. Bump both together.
+composablePreviewScanner = "0.9.3"
 
 [libraries]
 # Gradle plugins (compileOnly in build-logic)
@@ -147,6 +149,8 @@ robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "
 roborazzi = { group = "io.github.takahirom.roborazzi", name = "roborazzi", version.ref = "roborazzi" }
 roborazzi-compose = { group = "io.github.takahirom.roborazzi", name = "roborazzi-compose", version.ref = "roborazzi" }
 roborazzi-junit-rule = { group = "io.github.takahirom.roborazzi", name = "roborazzi-junit-rule", version.ref = "roborazzi" }
+roborazzi-compose-preview-scanner-support = { group = "io.github.takahirom.roborazzi", name = "roborazzi-compose-preview-scanner-support", version.ref = "roborazzi" }
+composable-preview-scanner-android = { group = "io.github.sergio-sastre.ComposablePreviewScanner", name = "android", version.ref = "composablePreviewScanner" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
