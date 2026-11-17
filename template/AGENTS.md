@@ -159,6 +159,13 @@ task는 두 개다. 모듈에 없는 task는 건너뛴다.
 
 포맷 오류는 `./gradlew ktlintFormat`으로 고친다. 기준 스크린샷은 커밋하지 않는다.
 
+`starter.android.screenshot`을 쓰는 모듈은 모듈 namespace 아래의 모든 `@Preview`(private 포함)를 Roborazzi가 자동으로 캡처한다. 따로 스크린샷 테스트를 쓰지 않아도 된다.
+
+- 프리뷰는 `@StarterPreview`(`core:ui`의 `core.ui.preview`, Light·Dark·2배 글자)를 붙이고 본문을 `StarterTheme { }`으로 감싼다.
+- Robolectric이 그릴 수 없는 프리뷰(Hilt, ViewModel)나 실행마다 달라지는 프리뷰(시간, 난수)는 `@ScreenshotExcluded`로 뺀다. build-logic은 이 어노테이션을 FQN 문자열로 참조하므로 옮기거나 이름을 바꾸면 Konsist `ScreenshotExclusionRulesTest`가 실패한다.
+- `starter.android.screenshot`을 쓰는 모듈은 `core:ui`에 의존해야 한다. 자동 캡처가 `ScreenshotExcluded` 클래스를 test classpath에서 찾기 때문이다(`feature:*`는 `starter.android.feature`가 이미 넣는다).
+- 자동 캡처 테스트는 task graph에 Roborazzi 실행 task(`recordRoborazziDebug` 등)가 있을 때만 돈다. `testStarter`에서는 빠지고 `verifyStarter`에서 돈다.
+
 ## 7. 금지 사항
 
 - `feature`에서 `data`, `core:network`, `core:database`, `core:datastore`를 의존하거나 import하지 않는다. UI가 저장소 구현에 묶이면 교체와 테스트가 어려워진다.
