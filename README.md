@@ -81,6 +81,8 @@ python3 scripts/verify.py build/dev/nav3
 python3 -m unittest discover -s scripts/tests
 ```
 
+릴리스는 `main`에 머지하면 `.github/workflows/release.yml`이 자동으로 만듭니다. 태그는 `vYYYY.MM.DD.NN`(KST 날짜와 그날의 회차, 예: `v2026.11.17.01`)이고 GitHub Release 노트는 자동 생성됩니다. git 태그 이름에 `:`를 쓸 수 없어서 회차 앞도 `.`로 구분합니다. `develop` 대상 PR의 CI는 생성물의 `assembleDebug`만 확인하고, `main` 대상 PR에서 `verify.py` 전체를 돌립니다.
+
 `AGENTS.md`는 LLM이 따라야 할 전체 절차이고 `CLAUDE.md`는 이를 참조합니다. 절차를 바꿀 때는 `AGENTS.md`만 고치세요.
 
 ## 라이선스
