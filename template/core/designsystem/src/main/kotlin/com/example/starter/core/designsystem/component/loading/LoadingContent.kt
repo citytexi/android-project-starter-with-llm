@@ -1,4 +1,4 @@
-package com.example.starter.core.ui
+package com.example.starter.core.designsystem.component.loading
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import com.example.starter.core.designsystem.R
 
 /**
  * Loading wrapper for content that refreshes in place. [modifier] sizes the wrapper in every state.
@@ -27,7 +28,7 @@ fun LoadingContent(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    val loadingLabel = stringResource(R.string.core_ui_loading)
+    val loadingLabel = stringResource(R.string.designsystem_loading)
     Box(modifier = modifier) {
         if (isLoading && !hasContent) {
             CircularProgressIndicator(

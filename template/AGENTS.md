@@ -16,8 +16,8 @@ LLM 도구(Claude Code, Cursor, Codex)와 팀원이 이 프로젝트에서 지�
 | `:feature:sample` | Android | 예시 화면. Route, Screen, ViewModel, UiState/Intent/SideEffect. 새 feature의 복사 원본 |
 | `:domain` | JVM | 모델, `*Repository` 인터페이스, `*UseCase`. Android 의존 금지 |
 | `:data` | Android | `*RepositoryImpl`, Hilt 바인딩(`DataModule`) |
-| `:core:designsystem` | Android | 테마, 공용 컴포넌트 |
-| `:core:ui` | Android | feature 공용 UI 유틸, MVI 컨테이너(`core.ui.mvi`) |
+| `:core:designsystem` | Android | 테마, 공용 컴포넌트(`LoadingContent` 포함) |
+| `:core:ui` | Android | feature와 디자인 시스템이 함께 쓰는 UI 유틸, MVI 컨테이너(`core.ui.mvi`). Material 3와 디자인 시스템에 의존하지 않음 |
 | `:core:navigation` | Android | route/key 정의. nav 라이브러리를 `api`로 노출 |
 | `:core:network` | Android | Retrofit, OkHttp, `SampleApi`, `BuildConfig.BASE_URL` |
 | `:core:database` | Android | Room. 스키마를 바꿀 때는 `StarterDatabase` KDoc(버전, AutoMigration)과 `StarterDatabaseMigrationTest`를 따른다 |
@@ -38,7 +38,7 @@ Gradle `build-logic`의 `ModuleRules`가 모든 모듈의 프로젝트 의존을
 | `feature:*` | `domain`, `core:designsystem`, `core:ui`, `core:navigation`, `core:common` |
 | `domain` | `core:common` |
 | `data` | `domain`, `core:network`, `core:database`, `core:datastore`, `core:common` |
-| `core:designsystem`, `core:ui`, `core:navigation` | 이 셋과 `core:common`만(UI core는 `network`, `database`, `datastore`에 의존하지 못함) |
+| `core:designsystem`, `core:ui`, `core:navigation` | 이 셋과 `core:common`만(UI core는 `network`, `database`, `datastore`에 의존하지 못함). 단 `core:ui`는 `core:designsystem`에 의존하지 못함 |
 | 그 밖의 `core:*` | 다른 `core:*`만. `core:testing:*`은 test/androidTest 구성에서만 쓰고, 자신은 아무 `core:*`에나 의존할 수 있음 |
 | `app` | 전부 |
 | `konsist` | 없음 |
@@ -49,6 +49,7 @@ Konsist(`konsist/src/test`)가 import도 검사한다.
 
 - `feature`는 `com.example.starter.data`, `core.network`, `core.database`, `core.datastore` 패키지를 import하지 않는다(와일드카드 포함).
 - `domain`은 `android`, `androidx`를 import하지 않는다.
+- `core:ui`는 `com.example.starter.core.designsystem`과 `androidx.compose.material3`를 import하지 않는다. 디자인 시스템이 `core:ui` 위에 있다.
 - ViewModel의 `MutableMviContainer` 프로퍼티는 `private`이어야 한다(4장 참고).
 
 데이터는 항상 **Repository → UseCase → ViewModel** 순서로 흐른다. Konsist가 강제한다.
