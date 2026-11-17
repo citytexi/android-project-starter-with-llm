@@ -11,7 +11,8 @@
  * - `:domain` may depend on `:core:common`.
  * - `:data` may depend on `:domain`, `:core:network`, `:core:database`, `:core:datastore`, `:core:common`.
  * - `:core:designsystem`, `:core:ui`, `:core:navigation` (UI cores) may depend only on each other
- *   and on `:core:common`.
+ *   and on `:core:common`, except that `:core:ui` must not depend on `:core:designsystem`:
+ *   `:core:ui` sits below the design system so the design system can use its utilities.
  * - Other `:core:*` modules may depend on other `:core:*` modules. `:core:testing:*` is test-only,
  *   so only other `:core:testing:*` modules may use it from main configurations.
  * - `:konsist` depends on nothing (it reads source paths).
@@ -45,6 +46,7 @@ object ModuleRules {
         from == ":domain" -> to in DOMAIN_ALLOWED
         from == ":data" -> to in DATA_ALLOWED
         from.isUnder(":core:testing") -> to.isUnder(":core")
+        from == ":core:ui" -> to in UI_CORE_ALLOWED && to != ":core:designsystem"
         from in UI_CORES -> to in UI_CORE_ALLOWED
         from.isUnder(":core") -> to.isUnder(":core") && !to.isUnder(":core:testing")
         else -> false

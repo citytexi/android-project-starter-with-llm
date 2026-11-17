@@ -36,4 +36,21 @@ class LayerImportRulesTest {
             }
         assertTrue(violations.isEmpty(), "domain must stay Android-free:\n${violations.joinToString("\n")}")
     }
+
+    @Test
+    fun `core ui does not import designsystem or material3`() {
+        val files =
+            productionFiles("core").filter {
+                isInPackage(it.packagee?.name.orEmpty(), "com.example.starter.core.ui")
+            }
+        assertTrue(files.isNotEmpty(), "no core:ui sources found, scope is wrong")
+        val forbidden = listOf("com.example.starter.core.designsystem", "androidx.compose.material3")
+        val violations =
+            files.flatMap { file ->
+                file.imports
+                    .filter { import -> forbidden.any { isInPackage(import.name, it) } }
+                    .map { "${file.projectPath}: ${it.name}" }
+            }
+        assertTrue(violations.isEmpty(), "core:ui must stay below designsystem and material3:\n${violations.joinToString("\n")}")
+    }
 }

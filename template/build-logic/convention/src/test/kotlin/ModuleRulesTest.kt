@@ -49,14 +49,21 @@ class ModuleRulesTest {
         assertFalse(ModuleRules.isAllowed(":core:ui", ":feature:sample"))
         assertFalse(ModuleRules.isAllowed(":core:network", ":data"))
         assertFalse(ModuleRules.isAllowed(":core:database", ":domain"))
-        assertTrue(ModuleRules.isAllowed(":core:ui", ":core:designsystem"))
+        assertTrue(ModuleRules.isAllowed(":core:designsystem", ":core:ui"))
+    }
+
+    @Test
+    fun `core ui must not depend on designsystem`() {
+        assertFalse(ModuleRules.isAllowed(":core:ui", ":core:designsystem"))
     }
 
     @Test
     fun `ui cores may depend only on ui cores and common`() {
         val uiCores = listOf(":core:designsystem", ":core:ui", ":core:navigation")
         uiCores.forEach { from ->
-            (uiCores + ":core:common").forEach { to -> assertTrue("$from -> $to", ModuleRules.isAllowed(from, to)) }
+            (uiCores + ":core:common")
+                .filterNot { to -> from == ":core:ui" && to == ":core:designsystem" }
+                .forEach { to -> assertTrue("$from -> $to", ModuleRules.isAllowed(from, to)) }
             listOf(":core:network", ":core:database", ":core:datastore", ":core:testing:jvm").forEach { to ->
                 assertFalse("$from -> $to", ModuleRules.isAllowed(from, to))
             }
