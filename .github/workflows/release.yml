@@ -1,0 +1,41 @@
+name: release
+
+# main 에 머지(push)되면 날짜 기반 태그 vYYYY.MM.DD.NN 과 GitHub Release 를 만든다.
+# 날짜는 KST 기준이고, 같은 날 두 번째 릴리스부터 NN 이 02, 03... 으로 올라간다.
+# git 태그 이름에는 ':' 를 쓸 수 없어서 회차 앞도 '.' 로 구분한다.
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+# 회차 계산이 겹치지 않도록 한 번에 하나만 돌린다
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+
+      - name: Compute next tag
+        id: tag
+        run: |
+          day="$(TZ=Asia/Seoul date +%Y.%m.%d)"
+          last="$(git tag -l "v${day}.*" | sed -E "s/^v${day}\.//" | grep -E '^[0-9]+$' | sort -n | tail -n 1 || true)"
+          next=$(( 10#${last:-0} + 1 ))
+          tag="$(printf 'v%s.%02d' "$day" "$next")"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "next tag: $tag"
+
+      - name: Create tag and release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: gh release create "$TAG" --target "$GITHUB_SHA" --title "$TAG" --generate-notes

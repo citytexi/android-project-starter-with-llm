@@ -1,0 +1,28 @@
+name: Install actionlint
+description: 고정한 버전의 actionlint 를 sha256 검증 후 PATH 에 설치한다 (linux amd64 러너 전용)
+
+inputs:
+  version:
+    description: actionlint 버전
+    default: "1.7.7"
+  sha256:
+    description: 위 버전 linux_amd64 tarball 의 sha256 (릴리스의 checksums.txt 에서 가져온다)
+    default: "023070a287cd8cccd71515fedc843f1985bf96c436b7effaecce67290e7e0757"
+
+runs:
+  using: composite
+  steps:
+    - name: Download, verify, install
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        SHA256: ${{ inputs.sha256 }}
+      run: |
+        set -euo pipefail
+        tarball="actionlint_${VERSION}_linux_amd64.tar.gz"
+        curl -sSfL -o "$RUNNER_TEMP/$tarball" \
+          "https://github.com/rhysd/actionlint/releases/download/v${VERSION}/${tarball}"
+        echo "${SHA256}  $RUNNER_TEMP/$tarball" | sha256sum -c -
+        mkdir -p "$RUNNER_TEMP/actionlint-bin"
+        tar -xzf "$RUNNER_TEMP/$tarball" -C "$RUNNER_TEMP/actionlint-bin" actionlint
+        echo "$RUNNER_TEMP/actionlint-bin" >> "$GITHUB_PATH"

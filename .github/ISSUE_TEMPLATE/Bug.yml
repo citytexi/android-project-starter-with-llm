@@ -1,0 +1,86 @@
+name: 버그 이슈
+description: 생성 스크립트, 템플릿, 생성물에서 발생한 버그를 제보합니다.
+title: "[Bug]: "
+labels: ["버그"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        버그 제보를 해주세요. 생성물을 직접 고치지 않은 상태에서 재현되는지 먼저 확인해주세요.
+  - type: textarea
+    id: summary
+    attributes:
+      label: 요약
+      description: 발생 중인 현상을 한 줄로 요약해주세요.
+      placeholder: 예) navigation = nav2, ci = test 조합에서 verify.py가 종료 코드 5로 실패함
+    validations:
+      required: true
+  - type: dropdown
+    id: stage
+    attributes:
+      label: 발생 단계
+      description: 어느 단계에서 문제가 생겼나요?
+      options:
+        - generate.py (생성)
+        - verify.py (검증)
+        - 생성물 빌드/실행
+        - 생성물 CI (GitHub Actions)
+        - 문서/LLM 절차 (AGENTS.md)
+        - 기타
+    validations:
+      required: true
+  - type: textarea
+    id: prd
+    attributes:
+      label: PRD 값
+      description: 사용한 PRD의 properties 블록을 붙여 주세요. 민감한 주소는 가려도 됩니다.
+      render: properties
+    validations:
+      required: true
+  - type: textarea
+    id: history
+    attributes:
+      label: 재현 절차
+      description: 실행한 명령을 순서대로 적어주세요.
+      placeholder: |
+        1. python3 scripts/generate.py --prd PRD.md
+        2. python3 scripts/verify.py ../myapp
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: 종료 코드와 로그
+      description: 종료 코드와 로그 마지막 부분을 붙여 주세요.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 기대 동작
+      description: 버그가 고쳐졌을 때 어떤 모습이어야 하는지 적어주세요.
+      placeholder: 정상적으로 기대되는 동작을 작성해주세요!
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: 실행 환경
+      description: 재현 환경 정보를 적어주세요.
+      value: |
+        - OS:
+        - Python 버전:
+        - JDK 버전:
+        - 사용한 LLM 도구:
+        - 스타터 커밋:
+    validations:
+      required: true
+  - type: textarea
+    id: additional
+    attributes:
+      label: 추가 설명
+      description: build/reports 내용, 스크린샷, 기타 참고 정보를 첨부해주세요.
+    validations:
+      required: false
