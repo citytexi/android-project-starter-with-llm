@@ -78,7 +78,7 @@ private fun style(
         ),
 )
 
-internal val DefaultStarterTypography =
+internal val DefaultTypography =
     StarterTypography(
         t1Regular = style(size = 11, lineHeight = 16, weight = FontWeight.W400),
         t1Medium = style(size = 11, lineHeight = 16, weight = FontWeight.W500),

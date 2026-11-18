@@ -6,28 +6,28 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
-import com.example.starter.core.designsystem.theme.color.DarkStarterColors
-import com.example.starter.core.designsystem.theme.color.LightStarterColors
+import com.example.starter.core.designsystem.theme.color.DarkColors
+import com.example.starter.core.designsystem.theme.color.LightColors
 import com.example.starter.core.designsystem.theme.color.StarterColors
-import com.example.starter.core.designsystem.theme.dimension.DefaultStarterDimension
-import com.example.starter.core.designsystem.theme.dimension.DefaultStarterRadius
+import com.example.starter.core.designsystem.theme.dimension.DefaultDimension
+import com.example.starter.core.designsystem.theme.dimension.DefaultRadius
 import com.example.starter.core.designsystem.theme.dimension.StarterDimension
 import com.example.starter.core.designsystem.theme.dimension.StarterRadius
-import com.example.starter.core.designsystem.theme.motion.DefaultStarterMotion
+import com.example.starter.core.designsystem.theme.motion.DefaultMotion
 import com.example.starter.core.designsystem.theme.motion.StarterMotion
-import com.example.starter.core.designsystem.theme.shadow.DarkStarterShadows
-import com.example.starter.core.designsystem.theme.shadow.LightStarterShadows
+import com.example.starter.core.designsystem.theme.shadow.DarkShadows
+import com.example.starter.core.designsystem.theme.shadow.LightShadows
 import com.example.starter.core.designsystem.theme.shadow.StarterShadows
-import com.example.starter.core.designsystem.theme.typography.DefaultStarterTypography
+import com.example.starter.core.designsystem.theme.typography.DefaultTypography
 import com.example.starter.core.designsystem.theme.typography.StarterTypography
 
 // Defaults are light, so previews and tests not wrapped in StarterTheme still draw light values.
-internal val LocalStarterColors = staticCompositionLocalOf { LightStarterColors }
-internal val LocalStarterTypography = staticCompositionLocalOf { DefaultStarterTypography }
-internal val LocalStarterDimension = staticCompositionLocalOf { DefaultStarterDimension }
-internal val LocalStarterRadius = staticCompositionLocalOf { DefaultStarterRadius }
-internal val LocalStarterShadows = staticCompositionLocalOf { LightStarterShadows }
-internal val LocalStarterMotion = staticCompositionLocalOf { DefaultStarterMotion }
+internal val LocalColors = staticCompositionLocalOf { LightColors }
+internal val LocalTypography = staticCompositionLocalOf { DefaultTypography }
+internal val LocalDimension = staticCompositionLocalOf { DefaultDimension }
+internal val LocalRadius = staticCompositionLocalOf { DefaultRadius }
+internal val LocalShadows = staticCompositionLocalOf { LightShadows }
+internal val LocalMotion = staticCompositionLocalOf { DefaultMotion }
 
 /** Provides the app tokens and wraps Material 3 in the same values. */
 @Composable
@@ -35,15 +35,15 @@ fun StarterTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
-    val colors = if (darkTheme) DarkStarterColors else LightStarterColors
-    val shadows = if (darkTheme) DarkStarterShadows else LightStarterShadows
+    val colors = if (darkTheme) DarkColors else LightColors
+    val shadows = if (darkTheme) DarkShadows else LightShadows
     CompositionLocalProvider(
-        LocalStarterColors provides colors,
-        LocalStarterTypography provides DefaultStarterTypography,
-        LocalStarterDimension provides DefaultStarterDimension,
-        LocalStarterRadius provides DefaultStarterRadius,
-        LocalStarterShadows provides shadows,
-        LocalStarterMotion provides DefaultStarterMotion,
+        LocalColors provides colors,
+        LocalTypography provides DefaultTypography,
+        LocalDimension provides DefaultDimension,
+        LocalRadius provides DefaultRadius,
+        LocalShadows provides shadows,
+        LocalMotion provides DefaultMotion,
     ) {
         MaterialTheme(
             colorScheme = if (darkTheme) DarkMaterialColorScheme else LightMaterialColorScheme,
@@ -54,29 +54,29 @@ fun StarterTheme(
     }
 }
 
-/** Where screens read tokens, like `MaterialTheme`: `StarterTheme.color.bg.brandSolid`. */
+/** Where screens read tokens, like `MaterialTheme`: `StarterTheme.colors.bg.brandSolid`. */
 object StarterTheme {
-    val color: StarterColors
+    val colors: StarterColors
         @Composable @ReadOnlyComposable
-        get() = LocalStarterColors.current
+        get() = LocalColors.current
 
     val typography: StarterTypography
         @Composable @ReadOnlyComposable
-        get() = LocalStarterTypography.current
+        get() = LocalTypography.current
 
     val dimension: StarterDimension
         @Composable @ReadOnlyComposable
-        get() = LocalStarterDimension.current
+        get() = LocalDimension.current
 
     val radius: StarterRadius
         @Composable @ReadOnlyComposable
-        get() = LocalStarterRadius.current
+        get() = LocalRadius.current
 
-    val shadow: StarterShadows
+    val shadows: StarterShadows
         @Composable @ReadOnlyComposable
-        get() = LocalStarterShadows.current
+        get() = LocalShadows.current
 
     val motion: StarterMotion
         @Composable @ReadOnlyComposable
-        get() = LocalStarterMotion.current
+        get() = LocalMotion.current
 }

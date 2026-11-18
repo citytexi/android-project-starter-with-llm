@@ -219,18 +219,27 @@ interface SecureStore {
 
 ## 11. 디자인 토큰
 
-`core:designsystem`의 `theme/` 아래에 토큰이 있다. 화면과 컴포넌트는 `StarterTheme.color`, `.typography`, `.dimension`, `.radius`, `.shadow`, `.motion`으로 읽는다(`MaterialTheme`처럼 `StarterTheme { }` 안에서).
+`core:designsystem`의 `theme/` 아래에 토큰이 있다. 화면과 컴포넌트는 `StarterTheme.colors`, `.typography`, `.dimension`, `.radius`, `.shadows`, `.motion`으로 읽는다(`MaterialTheme`처럼 `StarterTheme { }` 안에서). 글자 스타일도 `MaterialTheme.typography`가 아니라 `StarterTheme.typography`에서 고른다.
 
 | 패키지 | 내용 |
 |---|---|
-| `theme.color` | `Palette`(원색 단계, internal), `StarterColors`(`bg`/`fg`/`stroke` 용도 색), `LightStarterColors`/`DarkStarterColors`(용도 → 팔레트 연결) |
-| `theme.dimension` | `StarterDimension`(4dp 간격 단계 `xN`, 용도 간격 `spacingX`/`spacingY`), `StarterRadius` |
+| `theme.color` | `Palette`(원색 단계, internal), `StarterColors`(`bg`/`fg`/`stroke` 용도 색), `LightColors`/`DarkColors`(용도 → 팔레트 연결) |
+| `theme.dimension` | `StarterDimension`(`x1`의 배수인 간격 단계 `xN`, 용도 간격 `spacingX`/`spacingY`), `StarterRadius` |
 | `theme.typography` | `StarterTypography`(`t1`~`t14` 크기 × Regular/Medium/Bold), `AppFontFamily` |
 | `theme.motion` | `StarterMotion`(`duration` 밀리초, `timingFunction` easing) |
-| `theme.shadow` | `StarterShadows`(`s1`~`s3`), `Modifier.starterShadow(token, shape)` |
+| `theme.shadow` | `StarterShadows`(`s1`~`s3`), `Modifier.tokenShadow(token, shape)` |
 | `theme` | `StarterTheme`, `MaterialMapping`(토큰 → Material 3 `ColorScheme`/`Typography`/`Shapes`) |
 
-- 값은 중립 기본값이다. 앱 브랜드에 맞게 `Palette`와 Light/Dark 연결, 각 `Default*` 값을 바꾼다. 화면 코드에 색이나 dp 값을 직접 쓰지 않고 토큰을 읽는다.
+- 값은 중립 기본값이다. 앱 브랜드에 맞게 바꾼다.
+  - 색: `Palette`의 값, `LightColors`/`DarkColors`의 연결, `theme/MaterialOnlyColors.kt`의 `LightMaterialOnlyColors`/`DarkMaterialOnlyColors`(용도 토큰에 없는 Material 칸: `onPrimary`, `inversePrimary`, surface container 5단계).
+  - 그 밖의 값: 각 `Default*`(`DefaultDimension`, `DefaultRadius`, `DefaultTypography`, `DefaultMotion`)와 `LightShadows`/`DarkShadows`.
+  - 앱 리소스: 런처 아이콘 배경과 스플래시 색(`app/src/main/res/values*/colors.xml`)은 Compose 밖이라 토큰을 읽지 못한다. 주석에 적힌 토큰 값과 같게 맞춘다.
+- 화면 코드에 색이나 dp 값을 직접 쓰지 않고 토큰을 읽는다(관례, 아직 검사하지 않음).
 - 브랜드 폰트는 `res/font`에 넣고 `AppFontFamily`를 바꾼다.
-- Material 3 컴포넌트도 같은 값을 쓰도록 `MaterialMapping`이 `ColorScheme`의 모든 칸을 토큰으로 채운다. 토큰을 추가하거나 이름을 바꾸면 이 연결도 맞춘다.
-- 테스트가 토큰 사이의 관계를 지킨다. `ColorContrastTest`(solid 배경 위 글자 대비 4.5:1 이상), `FoundationScaleTest`(용도 간격은 간격 단계 중 하나, 그림자·시간 단계는 오름차순), `StarterThemeTest`(Material 연결, 다크 선택, 테마 밖 기본값은 라이트). 값을 바꾸다 실패하면 테스트를 고치지 말고 값을 고친다.
+- `MaterialMapping`은 `ColorScheme`의 모든 칸과 글자 15칸, `Shapes`를 채운다. Material 기본값(보라)이 섞이지 않게 하기 위해서다. `primary`는 글자·아이콘 색으로도 쓰이므로 `fg.brand`에 연결하고, `*Fixed` 칸은 라이트 토큰으로 고정한다.
+- 테스트
+  - `ColorContrastTest`: solid 배경 위 글자 대비 4.5:1 이상(Light·Dark).
+  - `FoundationScaleTest`: 값이 아니라 관계를 본다. 간격 단계는 `x1`의 배수, 모든 단계는 엄격히 오름차순, 용도 간격은 간격 단계 중 하나, 다크 그림자가 라이트보다 진하다.
+  - `MaterialMappingTest`: Material 칸마다 연결된 토큰, surface container 순서, `primary` 대비, Light·Dark에서 같은 `*Fixed` 값.
+  - `StarterThemeTest`: 테마가 Light/Dark에 맞는 토큰을 주는지, 테마 밖 기본값이 라이트인지.
+  - 값을 바꾸다 대비·관계 테스트가 실패하면 테스트를 고치지 말고 값을 고친다. 연결 자체를 바꿀 때(`MaterialMapping`의 칸을 다른 토큰에 연결)만 `MaterialMappingTest`의 기대값을 함께 바꾼다.

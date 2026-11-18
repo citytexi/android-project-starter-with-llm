@@ -29,7 +29,7 @@ data class StarterDimension(
     val spacingY: StarterSpacingY,
 )
 
-internal val DefaultStarterDimension =
+internal val DefaultDimension =
     StarterDimension(
         x0Half = 2.dp,
         x1 = 4.dp,

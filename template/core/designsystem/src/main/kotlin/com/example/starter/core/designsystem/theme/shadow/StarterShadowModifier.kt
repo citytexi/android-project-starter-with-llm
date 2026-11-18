@@ -7,7 +7,7 @@ import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.unit.DpOffset
 
 /** Draws a shadow token with `dropShadow`. Put it before `background` so the shadow sits behind the surface. */
-fun Modifier.starterShadow(
+fun Modifier.tokenShadow(
     token: StarterShadowToken,
     shape: Shape,
 ): Modifier =

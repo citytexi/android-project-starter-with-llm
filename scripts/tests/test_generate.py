@@ -262,6 +262,26 @@ class HelpersTest(unittest.TestCase):
             (root / "y.dat").write_bytes(b"\xff\xfeStarter")
             self.assertEqual(generate.find_leftovers(root), ["gradlew:2"])
 
+    def test_template_has_no_prefix_the_generator_cannot_rename(self):
+        # The generator renames `Starter` only at a word start (\bStarter). A name like
+        # `LightStarterColors` would reach generated apps unrenamed, and the leftover check would miss
+        # it. Gradle task names (testStarter, verifyStarter) are kept on purpose, like lowercase
+        # `starter` (plugin ids, gradle properties), which the generator never renames.
+        mid_word = re.compile(r"[A-Za-z0-9_]Starter")
+        allowed = {"testStarter", "verifyStarter"}
+        hits = []
+        for root in (REPO / "template", REPO / "variants"):
+            for path in root.rglob("*"):
+                if not path.is_file() or set(path.parts) & generate.SKIP_NAMES:
+                    continue
+                if path.suffix not in generate.TEXT_EXTENSIONS:
+                    continue
+                for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                    for word in re.findall(r"\w+", line):
+                        if mid_word.search(word) and word not in allowed:
+                            hits.append(f"{path.relative_to(REPO)}:{n}: {word}")
+        self.assertEqual(hits, [])
+
     def test_find_prefix_clashes_on_real_template(self):
         roots = [REPO / "template", REPO / "variants/navigation/nav3"]
         clashes = generate.find_prefix_clashes(roots, "Coroutine")

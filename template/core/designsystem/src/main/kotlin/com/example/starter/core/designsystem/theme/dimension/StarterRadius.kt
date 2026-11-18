@@ -22,7 +22,7 @@ data class StarterRadius(
     val full: Shape,
 )
 
-internal val DefaultStarterRadius =
+internal val DefaultRadius =
     StarterRadius(
         r0Half = 2.dp,
         r1 = 4.dp,

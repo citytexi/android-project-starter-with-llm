@@ -5,35 +5,36 @@ import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.ui.graphics.Color
-import com.example.starter.core.designsystem.theme.color.DarkStarterColors
-import com.example.starter.core.designsystem.theme.color.LightStarterColors
-import com.example.starter.core.designsystem.theme.color.Palette
+import com.example.starter.core.designsystem.theme.color.DarkColors
+import com.example.starter.core.designsystem.theme.color.LightColors
 import com.example.starter.core.designsystem.theme.color.StarterColors
-import com.example.starter.core.designsystem.theme.dimension.DefaultStarterRadius
+import com.example.starter.core.designsystem.theme.dimension.DefaultRadius
 import com.example.starter.core.designsystem.theme.dimension.StarterRadius
-import com.example.starter.core.designsystem.theme.typography.DefaultStarterTypography
+import com.example.starter.core.designsystem.theme.typography.DefaultTypography
 import com.example.starter.core.designsystem.theme.typography.StarterTypography
 
-internal val LightMaterialColorScheme = LightStarterColors.toColorScheme(inversePrimary = Palette.brand400)
-internal val DarkMaterialColorScheme = DarkStarterColors.toColorScheme(inversePrimary = Palette.brand600)
-internal val DefaultMaterialTypography = DefaultStarterTypography.toMaterialTypography()
-internal val DefaultMaterialShapes = DefaultStarterRadius.toMaterialShapes()
+internal val LightMaterialColorScheme = LightColors.toColorScheme(LightMaterialOnlyColors)
+internal val DarkMaterialColorScheme = DarkColors.toColorScheme(DarkMaterialOnlyColors)
+internal val DefaultMaterialTypography = DefaultTypography.toMaterialTypography()
+internal val DefaultMaterialShapes = DefaultRadius.toMaterialShapes()
 
 /**
  * Bridge so Material 3 components use the app tokens. Every constructor slot is filled by name,
- * so the Material default (purple) never leaks in. `inversePrimary` has no role token, so each
- * theme passes a palette step.
+ * so the Material default (purple) never leaks in.
  */
-internal fun StarterColors.toColorScheme(inversePrimary: Color): ColorScheme =
-    ColorScheme(
-        primary = bg.brandSolid,
-        onPrimary = fg.onBrandSolid,
+internal fun StarterColors.toColorScheme(materialOnly: MaterialOnlyColors): ColorScheme {
+    // Material's fixed roles stay the same in light and dark, so they always come from the light tokens.
+    val fixed = LightColors
+    return ColorScheme(
+        primary = fg.brand,
+        onPrimary = materialOnly.onPrimary,
         primaryContainer = bg.brandWeak,
         onPrimaryContainer = fg.brandContrast,
-        inversePrimary = inversePrimary,
+        inversePrimary = materialOnly.inversePrimary,
         secondary = bg.neutralSolid,
         onSecondary = fg.onNeutralSolid,
-        secondaryContainer = bg.neutralWeak,
+        // Must differ from surfaceContainer: NavigationBar draws its selected pill in this color on it.
+        secondaryContainer = bg.neutralWeakPressed,
         onSecondaryContainer = fg.neutral,
         tertiary = bg.informativeSolid,
         onTertiary = fg.onInformativeSolid,
@@ -58,24 +59,25 @@ internal fun StarterColors.toColorScheme(inversePrimary: Color): ColorScheme =
         scrim = bg.overlay,
         surfaceBright = bg.layerFloating,
         surfaceDim = bg.layerBasement,
-        surfaceContainer = bg.neutralMuted,
-        surfaceContainerHigh = bg.layerFloating,
-        surfaceContainerHighest = bg.neutralWeak,
-        surfaceContainerLow = bg.layerFloating,
-        surfaceContainerLowest = bg.layerDefault,
-        primaryFixed = bg.brandWeak,
-        primaryFixedDim = bg.brandWeakPressed,
-        onPrimaryFixed = fg.brandContrast,
-        onPrimaryFixedVariant = fg.brand,
-        secondaryFixed = bg.neutralWeak,
-        secondaryFixedDim = bg.neutralWeakPressed,
-        onSecondaryFixed = fg.neutral,
-        onSecondaryFixedVariant = fg.neutralMuted,
-        tertiaryFixed = bg.informativeWeak,
-        tertiaryFixedDim = bg.informativeWeakPressed,
-        onTertiaryFixed = fg.informativeContrast,
-        onTertiaryFixedVariant = fg.informative,
+        surfaceContainer = materialOnly.surfaceContainer,
+        surfaceContainerHigh = materialOnly.surfaceContainerHigh,
+        surfaceContainerHighest = materialOnly.surfaceContainerHighest,
+        surfaceContainerLow = materialOnly.surfaceContainerLow,
+        surfaceContainerLowest = materialOnly.surfaceContainerLowest,
+        primaryFixed = fixed.bg.brandWeak,
+        primaryFixedDim = fixed.bg.brandWeakPressed,
+        onPrimaryFixed = fixed.fg.brandContrast,
+        onPrimaryFixedVariant = fixed.fg.brand,
+        secondaryFixed = fixed.bg.neutralWeak,
+        secondaryFixedDim = fixed.bg.neutralWeakPressed,
+        onSecondaryFixed = fixed.fg.neutral,
+        onSecondaryFixedVariant = fixed.fg.neutralMuted,
+        tertiaryFixed = fixed.bg.informativeWeak,
+        tertiaryFixedDim = fixed.bg.informativeWeakPressed,
+        onTertiaryFixed = fixed.fg.informativeContrast,
+        onTertiaryFixedVariant = fixed.fg.informative,
     )
+}
 
 /** Fills all 15 Material 3 text slots from the tokens, so no slot falls back to the Material default. */
 internal fun StarterTypography.toMaterialTypography(): Typography =

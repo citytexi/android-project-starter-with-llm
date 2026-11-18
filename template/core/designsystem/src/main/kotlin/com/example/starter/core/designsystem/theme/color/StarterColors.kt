@@ -11,7 +11,7 @@ data class StarterColors(
 )
 
 /** Light role mapping. Change the [Palette] steps here, not in components. */
-internal val LightStarterColors =
+internal val LightColors =
     StarterColors(
         bg =
             StarterBgColors(
@@ -107,7 +107,7 @@ internal val LightStarterColors =
     )
 
 /** Dark role mapping. Solid backgrounds keep white text readable, so they stay at the darker steps. */
-internal val DarkStarterColors =
+internal val DarkColors =
     StarterColors(
         bg =
             StarterBgColors(

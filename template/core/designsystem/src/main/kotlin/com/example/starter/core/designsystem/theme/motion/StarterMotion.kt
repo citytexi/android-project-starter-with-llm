@@ -10,7 +10,7 @@ data class StarterMotion(
     val timingFunction: StarterTimingFunction,
 )
 
-internal val DefaultStarterMotion =
+internal val DefaultMotion =
     StarterMotion(
         duration =
             StarterDuration(
