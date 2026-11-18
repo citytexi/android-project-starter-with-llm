@@ -22,6 +22,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import com.example.starter.core.designsystem.component.StarterButton
 import com.example.starter.core.designsystem.component.loading.LoadingContent
+import com.example.starter.core.designsystem.theme.StarterPreviewTheme
 import com.example.starter.core.designsystem.theme.StarterTheme
 import com.example.starter.core.ui.preview.StarterPreview
 import com.example.starter.domain.model.SampleItem
@@ -111,7 +112,7 @@ private fun SampleItems(items: List<SampleItem>) {
 @StarterPreview
 @Composable
 private fun SampleScreenPreview() {
-    StarterTheme {
+    StarterPreviewTheme {
         SampleScreen(
             state = SampleUiState(items = listOf(SampleItem(1, "First"), SampleItem(2, "Second"))),
             snackbarHostState = remember { SnackbarHostState() },
