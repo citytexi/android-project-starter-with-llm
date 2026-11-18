@@ -1,0 +1,93 @@
+package com.example.starter.core.designsystem.theme.color
+
+import androidx.compose.ui.graphics.Color
+
+/**
+ * Raw color ramps. Neutral placeholders: replace them with the app's brand palette.
+ * Screens never read these: they read the role tokens in [StarterColors] through `StarterTheme.color`.
+ */
+internal object Palette {
+    val white = Color(0xFFFFFFFF)
+
+    val gray50 = Color(0xFFFAFAFA)
+    val gray100 = Color(0xFFF4F4F5)
+    val gray200 = Color(0xFFE4E4E7)
+    val gray300 = Color(0xFFD4D4D8)
+    val gray400 = Color(0xFFA1A1AA)
+    val gray500 = Color(0xFF71717A)
+    val gray600 = Color(0xFF52525B)
+    val gray700 = Color(0xFF3F3F46)
+    val gray800 = Color(0xFF27272A)
+    val gray900 = Color(0xFF18181B)
+    val gray950 = Color(0xFF09090B)
+
+    val brand50 = Color(0xFFEEF2FF)
+    val brand100 = Color(0xFFE0E7FF)
+    val brand200 = Color(0xFFC7D2FE)
+    val brand400 = Color(0xFF818CF8)
+    val brand500 = Color(0xFF6366F1)
+    val brand600 = Color(0xFF4F46E5)
+    val brand700 = Color(0xFF4338CA)
+    val brand800 = Color(0xFF3730A3)
+    val brand900 = Color(0xFF312E81)
+    val brand950 = Color(0xFF1E1B4B)
+
+    val red50 = Color(0xFFFEF2F2)
+    val red100 = Color(0xFFFEE2E2)
+    val red200 = Color(0xFFFECACA)
+    val red400 = Color(0xFFF87171)
+    val red500 = Color(0xFFEF4444)
+    val red600 = Color(0xFFDC2626)
+    val red700 = Color(0xFFB91C1C)
+    val red800 = Color(0xFF991B1B)
+    val red900 = Color(0xFF7F1D1D)
+    val red950 = Color(0xFF450A0A)
+
+    val green50 = Color(0xFFF0FDF4)
+    val green100 = Color(0xFFDCFCE7)
+    val green200 = Color(0xFFBBF7D0)
+    val green400 = Color(0xFF4ADE80)
+    val green600 = Color(0xFF16A34A)
+    val green700 = Color(0xFF15803D)
+    val green800 = Color(0xFF166534)
+    val green900 = Color(0xFF14532D)
+    val green950 = Color(0xFF052E16)
+
+    val blue50 = Color(0xFFEFF6FF)
+    val blue100 = Color(0xFFDBEAFE)
+    val blue200 = Color(0xFFBFDBFE)
+    val blue400 = Color(0xFF60A5FA)
+    val blue500 = Color(0xFF3B82F6)
+    val blue600 = Color(0xFF2563EB)
+    val blue700 = Color(0xFF1D4ED8)
+    val blue800 = Color(0xFF1E40AF)
+    val blue900 = Color(0xFF1E3A8A)
+    val blue950 = Color(0xFF172554)
+
+    val yellow50 = Color(0xFFFFFBEB)
+    val yellow100 = Color(0xFFFEF3C7)
+    val yellow200 = Color(0xFFFDE68A)
+    val yellow300 = Color(0xFFFCD34D)
+    val yellow400 = Color(0xFFFBBF24)
+    val yellow500 = Color(0xFFF59E0B)
+    val yellow700 = Color(0xFFB45309)
+    val yellow800 = Color(0xFF92400E)
+    val yellow900 = Color(0xFF78350F)
+    val yellow950 = Color(0xFF451A03)
+
+    val blackAlpha5 = Color(0x0D000000)
+    val blackAlpha8 = Color(0x14000000)
+    val blackAlpha10 = Color(0x1A000000)
+    val blackAlpha12 = Color(0x1F000000)
+    val blackAlpha40 = Color(0x66000000)
+    val blackAlpha50 = Color(0x80000000)
+    val blackAlpha60 = Color(0x99000000)
+    val blackAlpha65 = Color(0xA6000000)
+    val blackAlpha70 = Color(0xB3000000)
+    val blackAlpha80 = Color(0xCC000000)
+    val whiteAlpha5 = Color(0x0DFFFFFF)
+    val whiteAlpha8 = Color(0x14FFFFFF)
+    val whiteAlpha10 = Color(0x1AFFFFFF)
+    val whiteAlpha14 = Color(0x24FFFFFF)
+    val whiteAlpha15 = Color(0x26FFFFFF)
+}

@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Launcher icon background. Matches the light primary color of the design system. -->
-    <color name="ic_launcher_background">#3F51B5</color>
-    <!-- Splash background: same as the window behind Compose, so the hand-off has no flash. -->
-    <color name="splash_background">#FFFBFE</color>
-    <color name="splash_icon_background">#3F51B5</color>
+    <!-- Launcher icon background. Keep it equal to core:designsystem Palette.brand600 (light bg.brandSolid). -->
+    <color name="ic_launcher_background">#4F46E5</color>
+    <!-- Splash background: keep it equal to light bg.layerDefault (Palette.white), the background behind
+         Compose, so the hand-off has no flash. -->
+    <color name="splash_background">#FFFFFF</color>
+    <color name="splash_icon_background">#4F46E5</color>
 </resources>

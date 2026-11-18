@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -21,7 +20,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
 import com.example.starter.core.designsystem.component.StarterButton
 import com.example.starter.core.designsystem.component.loading.LoadingContent
 import com.example.starter.core.designsystem.theme.StarterTheme
@@ -40,12 +38,19 @@ fun SampleScreen(
 ) {
     Scaffold(modifier = modifier, snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(
+                        horizontal = StarterTheme.dimension.spacingX.globalGutter,
+                        vertical = StarterTheme.dimension.x4,
+                    ),
+            verticalArrangement = Arrangement.spacedBy(StarterTheme.dimension.spacingY.componentDefault),
         ) {
             Text(
                 text = stringResource(R.string.sample_title),
-                style = MaterialTheme.typography.headlineSmall,
+                style = StarterTheme.typography.t9Bold,
                 modifier = Modifier.semantics { heading() },
             )
             LastRefreshed(epochMillis = state.lastRefreshedAt)
@@ -85,19 +90,19 @@ private fun LastRefreshed(epochMillis: Long?) {
         text =
             epochMillis?.let { stringResource(R.string.sample_last_refreshed, dateFormat.format(Date(it))) }
                 ?: stringResource(R.string.sample_never_refreshed),
-        style = MaterialTheme.typography.bodyMedium,
+        style = StarterTheme.typography.t4Regular,
     )
 }
 
 @Composable
 private fun SampleItems(items: List<SampleItem>) {
     if (items.isEmpty()) {
-        Text(text = stringResource(R.string.sample_empty), style = MaterialTheme.typography.bodyMedium)
+        Text(text = stringResource(R.string.sample_empty), style = StarterTheme.typography.t4Regular)
         return
     }
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         items(items = items, key = { it.id }) { item ->
-            Text(text = item.title, modifier = Modifier.padding(vertical = 12.dp))
+            Text(text = item.title, modifier = Modifier.padding(vertical = StarterTheme.dimension.x3))
             HorizontalDivider()
         }
     }
