@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReusableContent
+import androidx.compose.runtime.ReusableContentHost
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,6 +25,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -202,6 +205,101 @@ class PressableTest {
         assertEquals(OTHER.toArgb(), image[image.width / 2, image.height / 2].toArgb())
     }
 
+    @Test
+    fun disabledIgnoresClicks() {
+        var clicks = 0
+        setBox(enabled = false, onClick = { clicks++ })
+        composeRule.onNode(hasClickAction()).assertIsNotEnabled().performClick()
+        assertEquals(0, clicks)
+    }
+
+    @Test
+    fun disabledPressKeepsColor() {
+        setBox(enabled = false)
+        press()
+        assertEquals(BASE.toArgb(), centerPixel())
+    }
+
+    @Test
+    fun cancelRestoresSurface() {
+        setBox(enabled = true)
+        val idle = paintedWidth()
+        press()
+        composeRule.runOnIdle { lastPress?.let { source.tryEmit(PressInteraction.Cancel(it)) } }
+        composeRule.mainClock.advanceTimeBy(300)
+        assertEquals("size comes back after a cancelled press", idle, paintedWidth())
+        assertEquals("color comes back after a cancelled press", BASE.toArgb(), centerPixel())
+    }
+
+    @Test
+    fun newInteractionSourceIsTracked() {
+        val other = MutableInteractionSource()
+        var current by mutableStateOf(source)
+        composeRule.setContent {
+            StarterTheme(darkTheme = false) {
+                Box(Modifier.size(140.dp), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(100.dp).pressable(current, BASE, PRESSED, RoundedCornerShape(0.dp), true, false, {}))
+                }
+            }
+        }
+        composeRule.waitForIdle()
+        val idle = paintedWidth()
+        current = other
+        composeRule.waitForIdle()
+        composeRule.runOnIdle { other.tryEmit(PressInteraction.Press(Offset.Zero)) }
+        composeRule.mainClock.advanceTimeBy(300)
+        assertTrue("shrinks on the new source", paintedWidth() < idle)
+        assertEquals("darkens on the new source", PRESSED.toArgb(), centerPixel())
+    }
+
+    @Test
+    fun reattachedNodeStartsUnpressed() {
+        var active by mutableStateOf(true)
+        composeRule.setContent {
+            StarterTheme(darkTheme = false) {
+                Box(Modifier.size(140.dp), contentAlignment = Alignment.Center) {
+                    ReusableContentHost(active) {
+                        Box(Modifier.size(100.dp).pressable(source, BASE, PRESSED, RoundedCornerShape(0.dp), true, false, {}))
+                    }
+                }
+            }
+        }
+        composeRule.waitForIdle()
+        val idle = paintedWidth()
+        press()
+        // Deactivated while pressed: the release never reaches the node.
+        active = false
+        composeRule.waitForIdle()
+        active = true
+        composeRule.mainClock.advanceTimeBy(300)
+        assertEquals(idle, paintedWidth())
+        assertEquals(BASE.toArgb(), centerPixel())
+    }
+
+    @Test
+    fun reusedNodeJumpsToNewColor() {
+        var key by mutableStateOf(0)
+        var color by mutableStateOf(BASE)
+        composeRule.setContent {
+            ReusableContent(key) {
+                Box(Modifier.size(100.dp).pressable(source, color, PRESSED, RoundedCornerShape(0.dp), true, false, {}))
+            }
+        }
+        composeRule.waitForIdle()
+        composeRule.mainClock.autoAdvance = false
+        composeRule.runOnIdle {
+            key = 1
+            color = OTHER
+        }
+        // Frame by frame: the reuse lands within a couple of frames, while a fade (colorTransition, 150ms) needs about ten.
+        val frames =
+            List(3) {
+                composeRule.mainClock.advanceTimeByFrame()
+                centerPixel()
+            }
+        assertEquals("a reused node must not fade from the previous item's color", OTHER.toArgb(), frames.last())
+    }
+
     private fun setBox(
         enabled: Boolean,
         loading: Boolean = false,
@@ -230,6 +328,11 @@ class PressableTest {
             }
         }
         composeRule.waitForIdle()
+    }
+
+    private fun centerPixel(): Int {
+        val image = composeRule.onRoot().captureToImage().toPixelMap()
+        return image[image.width / 2, image.height / 2].toArgb()
     }
 
     /** Surface-colored pixels on the center row. Measured in pixels because the layout size stays and only the graphics layer shrinks. */

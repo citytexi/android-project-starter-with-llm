@@ -1,7 +1,9 @@
 package com.example.starter.core.designsystem.component.pressable
 
+import android.content.Context
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.FocusInteraction
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Box
@@ -15,10 +17,12 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -26,7 +30,10 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.test.core.app.ApplicationProvider
+import com.example.starter.core.designsystem.R
 import com.example.starter.core.designsystem.theme.StarterTheme
+import com.example.starter.core.designsystem.theme.color.LightColors
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -116,6 +123,47 @@ class StarterPressableSurfaceTest {
         assertEquals(BASE.toArgb(), borderPixel())
     }
 
+    @Test
+    fun toggleSelectionSurfaceReportsOnAndClicks() {
+        var clicks = 0
+        setSurface(selected = true, onClick = { clicks++ })
+        composeRule.onNodeWithTag(TAG).assertIsOn().performClick()
+        assertEquals(1, clicks)
+    }
+
+    @Test
+    fun loadingSurfaceAnnouncesLoading() {
+        setSurface(loading = true)
+        val loading = ApplicationProvider.getApplicationContext<Context>().getString(R.string.designsystem_loading)
+        composeRule.onNodeWithTag(TAG).assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, loading))
+    }
+
+    @Test
+    fun borderDrawsAtEdge() {
+        setSurface(border = BorderStroke(4.dp, BORDER))
+        assertEquals(BORDER.toArgb(), borderPixel())
+    }
+
+    @Test
+    fun focusRingShowsOnlyWhileFocused() {
+        setSurface()
+        assertEquals(BASE.toArgb(), borderPixel())
+        val focus = FocusInteraction.Focus()
+        composeRule.runOnIdle { source.tryEmit(focus) }
+        composeRule.waitForIdle()
+        assertEquals(LightColors.stroke.focusRing.toArgb(), borderPixel())
+        composeRule.runOnIdle { source.tryEmit(FocusInteraction.Unfocus(focus)) }
+        composeRule.waitForIdle()
+        assertEquals(BASE.toArgb(), borderPixel())
+    }
+
+    @Test
+    fun clickLabelReachesSemantics() {
+        setSurface(onClickLabel = "open")
+        val action = composeRule.onNodeWithTag(TAG).fetchSemanticsNode().config[SemanticsActions.OnClick]
+        assertEquals("open", action.label)
+    }
+
     private fun setWideContentSurface() {
         composeRule.setContent {
             StarterTheme(darkTheme = false) {
@@ -138,10 +186,13 @@ class StarterPressableSurfaceTest {
 
     private fun setSurface(
         enabled: Boolean = true,
+        loading: Boolean = false,
         selected: Boolean? = null,
         selectionMode: PressableSelectionMode = PressableSelectionMode.TOGGLE,
         scaleScope: PressScaleScope = PressScaleScope.SELF,
+        border: BorderStroke? = null,
         pressedBorder: BorderStroke? = null,
+        onClickLabel: String? = null,
         size: Dp = 100.dp,
         onClick: () -> Unit = {},
     ) {
@@ -154,10 +205,13 @@ class StarterPressableSurfaceTest {
                     enabled = enabled,
                     onClick = onClick,
                     modifier = Modifier.testTag(TAG).size(size),
+                    loading = loading,
                     selected = selected,
                     selectionMode = selectionMode,
                     scaleScope = scaleScope,
+                    border = border,
                     pressedBorder = pressedBorder,
+                    onClickLabel = onClickLabel,
                     interactionSource = source,
                 ) {}
             }

@@ -239,7 +239,7 @@ interface SecureStore {
 - 브랜드 폰트는 `res/font`에 넣고 `AppFontFamily`를 바꾼다.
 - `MaterialMapping`은 `ColorScheme`의 모든 칸과 글자 15칸, `Shapes`를 채운다. Material 기본값(보라)이 섞이지 않게 하기 위해서다. `primary`는 글자·아이콘 색으로도 쓰이므로 `fg.brand`에 연결하고, `*Fixed` 칸은 라이트 토큰으로 고정한다.
 - 테스트
-  - `ColorContrastTest`: solid 배경 위 글자 대비 4.5:1 이상(Light·Dark).
+  - `ColorContrastTest`: solid 배경 위 글자 대비 4.5:1 이상(평상시·눌림, Light·Dark).
   - `FoundationScaleTest`: 값이 아니라 관계를 본다. 간격 단계는 `x1`의 배수, 모든 단계는 엄격히 오름차순, 용도 간격은 간격 단계 중 하나, 다크 그림자가 라이트보다 진하다.
   - `MaterialMappingTest`: Material 칸마다 연결된 토큰, surface container 순서, `primary` 대비, Light·Dark에서 같은 `*Fixed` 값.
   - `StarterThemeTest`: 테마가 Light/Dark에 맞는 토큰을 주는지, 테마 밖 기본값이 라이트인지.
@@ -250,11 +250,17 @@ interface SecureStore {
 공용 컴포넌트는 `core:designsystem`의 `component.<종류>` 패키지에 둔다(`component.button`의 `StarterButton`, `component.loading`의 `LoadingContent`). `component` 패키지 바로 아래에는 두지 않는다.
 
 - 누르는 컴포넌트는 `component.pressable`의 `StarterPressableSurface`(internal) 위에 만든다. 이 표면이 맡는 것은 다음과 같다.
-  - 클릭, 또는 `selected`를 주면 토글(`PressableSelectionMode.TOGGLE`)이나 단일 선택(`SINGLE`).
-  - 눌림 표시: ripple 없이 배경이 `pressedColor`로 바뀌고 표면이 2dp만큼 줄어든다. 표면 전체를 줄일지 내용만 줄일지는 `PressScaleScope`로 정한다.
+  - 클릭, 또는 `selected`를 주면 토글(`PressableSelectionMode.TOGGLE`)이나 단일 선택(`SINGLE`). 버튼 표면은 `onClickLabel`로 TalkBack이 읽을 동작 이름을 받는다.
+  - 눌림 표시: ripple 없이 배경이 `pressedColor`로 바뀌고 표면이 줄어든다. 기준 길이(높이, 너비÷4, 24dp 중 가장 큰 값)가 2dp 짧아지는 비율이다. 표면 전체를 줄일지 내용만 줄일지는 `PressScaleScope`로 정한다.
+  - 키보드·D-pad 포커스 테두리(`stroke.focusRing`). ripple을 끄면 기본 포커스 표시도 사라지기 때문이다.
   - 테두리, 눌린 동안만 보이는 테두리, 그림자, 로딩 의미 정보.
   - 비활성·로딩 중이거나 시스템의 "애니메이션 삭제"가 켜져 있으면 줄지 않는다(`ReduceMotion`).
-- `clickable`, `toggleable`, `selectable`, `indication`, `ripple`, `pointerInput`, `detectTapGestures` 등 탭 처리는 `component.pressable`에서만 쓴다.
-- Material 3에서는 `Icon`, `Text`, `CircularProgressIndicator`, `LinearProgressIndicator`만 import한다. `Button`, `Surface(onClick)`, `IconButton`, `FilterChip` 같은 부품은 자체 ripple과 눌림 처리를 가져온다.
-- 위 세 규칙은 Konsist `ComponentRulesTest`가 검사한다.
-- 테스트: `PressableTest`(축소 배율, 비활성·로딩·애니메이션 삭제 중 축소 없음, 가장자리 탭 유지, 배경만 바뀜), `StarterPressableSurfaceTest`(내용 축소, 선택 역할, 눌린 테두리).
+- Konsist `ComponentRulesTest`가 검사하는 규칙은 다음 넷이다.
+  - 컴포넌트는 `component.<종류>`에 둔다.
+  - `component.pressable`에는 public 선언을 두지 않는다. 컴포넌트를 이 패키지에 넣어 아래 규칙을 피하지 못하게 하기 위해서다.
+  - 탭 처리(`clickable`, `combinedClickable`, `toggleable`, `triStateToggleable`, `selectable`, `indication`, `ripple`, `pointerInput`, `detectTapGestures`, semantics `onClick`)는 `core.designsystem` 안에서 `component.pressable`만 쓴다. 주석과 문자열은 검사하지 않는다.
+  - Material 3에서는 `Icon`, `Text`, `CircularProgressIndicator`, `LinearProgressIndicator`, `ProgressIndicatorDefaults`, `HorizontalDivider`, `VerticalDivider`, `LocalContentColor`만 import한다. `Button`, `Surface(onClick)`, `IconButton`, `FilterChip` 같은 부품은 자체 ripple과 눌림 처리를 가져온다.
+- 테스트
+  - `PressableTest`: 축소 배율, 비활성·로딩·애니메이션 삭제 중 축소 없음, 비활성 클릭 무시, 취소 뒤 복귀, `interactionSource` 교체, 재사용·재부착 뒤 상태, 가장자리 탭 유지, 배경만 바뀜.
+  - `StarterPressableSurfaceTest`: 내용 축소, 토글·단일 선택 역할, 테두리, 눌린 테두리, 포커스 테두리, 로딩 상태 설명, `onClickLabel`.
+  - `StarterButtonTest`: 클릭, 비활성, 눌림 색, 48dp 높이.

@@ -34,6 +34,7 @@ internal fun pressedScaleFactor(
  * While pressed the background turns [pressedColor] and the surface shrinks by [pressedScaleFactor]. No ripple.
  * [shadow] is drawn outside the clip and shrinks with the surface; a shadow placed before this modifier does not shrink.
  * With [scaleSelf] false the surface does not shrink, for surfaces that shrink only their content.
+ * [onClickLabel] is what TalkBack reads for the action ("double tap to [onClickLabel]").
  */
 internal fun Modifier.pressable(
     interactionSource: MutableInteractionSource,
@@ -44,6 +45,7 @@ internal fun Modifier.pressable(
     loading: Boolean,
     onClick: () -> Unit,
     role: Role = Role.Button,
+    onClickLabel: String? = null,
     shadow: Modifier = Modifier,
     scaleSelf: Boolean = true,
 ): Modifier =
@@ -51,6 +53,7 @@ internal fun Modifier.pressable(
         interactionSource = interactionSource,
         indication = null,
         enabled = enabled,
+        onClickLabel = onClickLabel,
         role = role,
         onClick = { if (!loading) onClick() },
     ).pressableSurface(interactionSource, color, pressedColor, shape, enabled, loading, shadow, scaleSelf)

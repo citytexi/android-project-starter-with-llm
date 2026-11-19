@@ -17,6 +17,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import com.example.starter.core.designsystem.R
+import com.example.starter.core.designsystem.theme.StarterTheme
 
 /**
  * Shared surface for interactive components. It owns the pressed color and shrink, the click or toggle, the border,
@@ -24,7 +25,8 @@ import com.example.starter.core.designsystem.R
  *
  * With [selected] null it is a button; otherwise a toggle or a single choice, by [selectionMode]. Selection surfaces have no loading state.
  * [scaleScope] picks whether the whole surface or only [content] shrinks while pressed.
- * [pressedBorder] is drawn over [border] only while pressed and enabled.
+ * [pressedBorder] is drawn over [border] only while pressed and enabled. Keyboard and D-pad focus draws a `stroke.focusRing` ring.
+ * [onClickLabel] names the action for TalkBack; button surfaces only, since toggle and selection have no label.
  * Size and accessibility name come in through [modifier]. While loading, [content] draws the progress indicator.
  */
 @Composable
@@ -42,10 +44,11 @@ internal fun StarterPressableSurface(
     border: BorderStroke? = null,
     pressedBorder: BorderStroke? = null,
     shadow: Modifier = Modifier,
+    onClickLabel: String? = null,
     interactionSource: MutableInteractionSource? = null,
     content: @Composable () -> Unit,
 ) {
-    require(selected == null || !loading) { "selection surfaces have no loading state" }
+    require(selected == null || (!loading && onClickLabel == null)) { "selection surfaces have no loading state or click label" }
     val source = interactionSource ?: remember { MutableInteractionSource() }
     val loadingDescription = stringResource(R.string.designsystem_loading)
     val scaleSelf = scaleScope == PressScaleScope.SELF
@@ -60,6 +63,7 @@ internal fun StarterPressableSurface(
                     enabled,
                     loading,
                     onClick,
+                    onClickLabel = onClickLabel,
                     shadow = shadow,
                     scaleSelf = scaleSelf,
                 )
@@ -91,6 +95,7 @@ internal fun StarterPressableSurface(
     val surfaceModifier =
         modifier
             .then(surface)
+            .then(FocusRingNode.Element(source, StarterTheme.colors.stroke.focusRing, StarterTheme.dimension.x0Half, shape))
             .then(if (border != null) Modifier.border(border, shape) else Modifier)
             .then(if (pressedBorder != null) pressedBorderModifier(pressedBorder, source, enabled, shape) else Modifier)
             .semantics { if (loading) stateDescription = loadingDescription }

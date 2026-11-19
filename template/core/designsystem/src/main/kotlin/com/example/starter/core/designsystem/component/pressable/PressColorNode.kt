@@ -16,7 +16,8 @@ import kotlinx.coroutines.launch
 
 /**
  * Surface background. Turns [pressedColor] while pressed, and stays [pressedColor] while loading whether pressed or not.
- * Text and icon colors are left alone.
+ * Text and icon colors are left alone. A node reused for another item (a Lazy list scrolling) jumps to the new color
+ * instead of fading from the previous item's.
  */
 internal class PressColorNode(
     private var interactionSource: InteractionSource,
@@ -30,6 +31,13 @@ internal class PressColorNode(
     private var pressed = false
     private val background = Animatable(target())
     private var pressJob: Job? = null
+
+    // Set by onReset. On reuse onAttach runs with the old item's colors and update() brings the new ones right after.
+    private var snapOnNextUpdate = false
+
+    override fun onReset() {
+        snapOnNextUpdate = true
+    }
 
     override fun onAttach() {
         pressed = false
@@ -55,12 +63,20 @@ internal class PressColorNode(
             pressed = false
             if (isAttached) pressJob = coroutineScope.launchPressTracking(interactionSource, ::onPressedChange)
         }
-        if (isAttached) animateToTarget()
+        if (!isAttached) return
+        if (snapOnNextUpdate) {
+            snapOnNextUpdate = false
+            val target = target()
+            coroutineScope.launch { background.snapTo(target) }
+        } else {
+            animateToTarget()
+        }
     }
 
     private fun target(): Color = if (loading || (enabled && pressed)) pressedColor else color
 
     private fun onPressedChange(pressed: Boolean) {
+        snapOnNextUpdate = false
         this.pressed = pressed
         animateToTarget()
     }
