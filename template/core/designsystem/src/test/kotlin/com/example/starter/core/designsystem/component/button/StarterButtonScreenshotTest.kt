@@ -1,9 +1,8 @@
-package com.example.starter.core.designsystem
+package com.example.starter.core.designsystem.component.button
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
-import com.example.starter.core.designsystem.component.StarterButton
 import com.example.starter.core.designsystem.theme.StarterTheme
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule

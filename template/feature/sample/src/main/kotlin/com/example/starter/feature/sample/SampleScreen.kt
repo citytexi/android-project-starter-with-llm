@@ -20,7 +20,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import com.example.starter.core.designsystem.component.StarterButton
+import com.example.starter.core.designsystem.component.button.StarterButton
 import com.example.starter.core.designsystem.component.loading.LoadingContent
 import com.example.starter.core.designsystem.theme.StarterPreviewTheme
 import com.example.starter.core.designsystem.theme.StarterTheme

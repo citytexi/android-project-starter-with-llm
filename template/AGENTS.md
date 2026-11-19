@@ -16,7 +16,7 @@ LLM 도구(Claude Code, Cursor, Codex)와 팀원이 이 프로젝트에서 지�
 | `:feature:sample` | Android | 예시 화면. Route, Screen, ViewModel, UiState/Intent/SideEffect. 새 feature의 복사 원본 |
 | `:domain` | JVM | 모델, `*Repository` 인터페이스, `*UseCase`. Android 의존 금지 |
 | `:data` | Android | `*RepositoryImpl`, Hilt 바인딩(`DataModule`) |
-| `:core:designsystem` | Android | 테마와 디자인 토큰(11장), 공용 컴포넌트(`LoadingContent` 포함) |
+| `:core:designsystem` | Android | 테마와 디자인 토큰(11장), 공용 컴포넌트(12장: `StarterButton`, `LoadingContent`) |
 | `:core:ui` | Android | feature와 디자인 시스템이 함께 쓰는 UI 유틸, MVI 컨테이너(`core.ui.mvi`). Material 3와 디자인 시스템에 의존하지 않음 |
 | `:core:navigation` | Android | route/key 정의. nav 라이브러리를 `api`로 노출 |
 | `:core:network` | Android | Retrofit, OkHttp, `SampleApi`, `BuildConfig.BASE_URL` |
@@ -244,3 +244,17 @@ interface SecureStore {
   - `MaterialMappingTest`: Material 칸마다 연결된 토큰, surface container 순서, `primary` 대비, Light·Dark에서 같은 `*Fixed` 값.
   - `StarterThemeTest`: 테마가 Light/Dark에 맞는 토큰을 주는지, 테마 밖 기본값이 라이트인지.
   - 값을 바꾸다 대비·관계 테스트가 실패하면 테스트를 고치지 말고 값을 고친다. 연결 자체를 바꿀 때(`MaterialMapping`의 칸을 다른 토큰에 연결)만 `MaterialMappingTest`의 기대값을 함께 바꾼다.
+
+## 12. 디자인 시스템 컴포넌트
+
+공용 컴포넌트는 `core:designsystem`의 `component.<종류>` 패키지에 둔다(`component.button`의 `StarterButton`, `component.loading`의 `LoadingContent`). `component` 패키지 바로 아래에는 두지 않는다.
+
+- 누르는 컴포넌트는 `component.pressable`의 `StarterPressableSurface`(internal) 위에 만든다. 이 표면이 맡는 것은 다음과 같다.
+  - 클릭, 또는 `selected`를 주면 토글(`PressableSelectionMode.TOGGLE`)이나 단일 선택(`SINGLE`).
+  - 눌림 표시: ripple 없이 배경이 `pressedColor`로 바뀌고 표면이 2dp만큼 줄어든다. 표면 전체를 줄일지 내용만 줄일지는 `PressScaleScope`로 정한다.
+  - 테두리, 눌린 동안만 보이는 테두리, 그림자, 로딩 의미 정보.
+  - 비활성·로딩 중이거나 시스템의 "애니메이션 삭제"가 켜져 있으면 줄지 않는다(`ReduceMotion`).
+- `clickable`, `toggleable`, `selectable`, `indication`, `ripple`, `pointerInput`, `detectTapGestures` 등 탭 처리는 `component.pressable`에서만 쓴다.
+- Material 3에서는 `Icon`, `Text`, `CircularProgressIndicator`, `LinearProgressIndicator`만 import한다. `Button`, `Surface(onClick)`, `IconButton`, `FilterChip` 같은 부품은 자체 ripple과 눌림 처리를 가져온다.
+- 위 세 규칙은 Konsist `ComponentRulesTest`가 검사한다.
+- 테스트: `PressableTest`(축소 배율, 비활성·로딩·애니메이션 삭제 중 축소 없음, 가장자리 탭 유지, 배경만 바뀜), `StarterPressableSurfaceTest`(내용 축소, 선택 역할, 눌린 테두리).
