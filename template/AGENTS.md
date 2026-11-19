@@ -161,7 +161,8 @@ task는 두 개다. 모듈에 없는 task는 건너뛴다.
 
 `starter.android.screenshot`을 쓰는 모듈은 모듈 namespace 아래의 모든 `@Preview`(private 포함)를 Roborazzi가 자동으로 캡처한다. 따로 스크린샷 테스트를 쓰지 않아도 된다.
 
-- 프리뷰는 `@StarterPreview`(`core:ui`의 `core.ui.preview`, Light·Dark·2배 글자)를 붙이고 본문을 `StarterTheme { }`으로 감싼다.
+- 프리뷰는 `@StarterPreview`(`core:ui`의 `core.ui.preview`, Light·Dark·2배 글자)를 붙이고 본문을 `StarterPreviewTheme { }`(`core:designsystem`)으로 감싼다. `StarterTheme`과 달리 테마 배경과 기본 글자색을 깔아서, `showBackground`의 흰 바탕 위에 다크 프리뷰가 그려지지 않는다. 같은 파일의 private 도우미 함수가 감싸도 되는데, 이름에 `Preview`가 들어가야 한다(`XxxPreviewContent`).
+- `StarterPreviewTheme`은 프리뷰에서만 쓴다. 화면과 컴포넌트는 `StarterTheme`을 쓴다. Konsist `PreviewThemeRulesTest`가 두 규칙을 검사한다(`@Preview`, `@PreviewLightDark` 같은 tooling 프리뷰와 `@StarterPreview` 같은 multipreview 모두).
 - Robolectric이 그릴 수 없는 프리뷰(Hilt, ViewModel)나 실행마다 달라지는 프리뷰(시간, 난수)는 `@ScreenshotExcluded`로 뺀다. build-logic은 이 어노테이션을 FQN 문자열로 참조하므로 옮기거나 이름을 바꾸면 Konsist `ScreenshotExclusionRulesTest`가 실패한다.
 - `starter.android.screenshot`을 쓰는 모듈은 `core:ui`에 의존해야 한다. 자동 캡처가 `ScreenshotExcluded` 클래스를 test classpath에서 찾기 때문이다(`feature:*`는 `starter.android.feature`가 이미 넣는다).
 - 자동 캡처 테스트는 task graph에 Roborazzi 실행 task(`recordRoborazziDebug` 등)가 있을 때만 돈다. `testStarter`에서는 빠지고 `verifyStarter`에서 돈다.
@@ -228,7 +229,7 @@ interface SecureStore {
 | `theme.typography` | `StarterTypography`(`t1`~`t14` 크기 × Regular/Medium/Bold), `AppFontFamily` |
 | `theme.motion` | `StarterMotion`(`duration` 밀리초, `timingFunction` easing) |
 | `theme.shadow` | `StarterShadows`(`s1`~`s3`), `Modifier.tokenShadow(token, shape)` |
-| `theme` | `StarterTheme`, `MaterialMapping`(토큰 → Material 3 `ColorScheme`/`Typography`/`Shapes`) |
+| `theme` | `StarterTheme`, `StarterPreviewTheme`(프리뷰 전용, 6장), `MaterialMapping`(토큰 → Material 3 `ColorScheme`/`Typography`/`Shapes`) |
 
 - 값은 중립 기본값이다. 앱 브랜드에 맞게 바꾼다.
   - 색: `Palette`의 값, `LightColors`/`DarkColors`의 연결, `theme/MaterialOnlyColors.kt`의 `LightMaterialOnlyColors`/`DarkMaterialOnlyColors`(용도 토큰에 없는 Material 칸: `onPrimary`, `inversePrimary`, surface container 5단계).
