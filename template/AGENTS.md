@@ -70,6 +70,8 @@ Konsist가 강제하는 규칙이다. 어기면 `testStarter`가 실패한다.
 | `*RepositoryImpl` | `data`. `domain`의 Repository를 구현해야 함 |
 | `*UseCase` | `domain`. `operator fun invoke`를 가져야 함 |
 
+production 파일 하나에는 최상위 class, interface, object를 하나만 둔다(`FileStructureRulesTest`). 중첩 타입과 최상위 함수·프로퍼티는 세지 않는다. 파일 이름은 그 타입 이름으로 짓는다(`SampleError.kt`).
+
 관례(검사하지 않음): nav 파일 이름은 `StarterRoutes`/`StarterNavKeys`처럼 접두사를 쓰고, feature의 화면 composable은 `*Route`, `*Screen`으로 짓는다.
 
 ## 4. 화면 상태: MVI 컨테이너
@@ -77,7 +79,7 @@ Konsist가 강제하는 규칙이다. 어기면 `testStarter`가 실패한다.
 화면 하나는 `UiState`, `UiIntent`, `UiSideEffect`(`core.ui.mvi`)로 표현한다. BaseViewModel은 없다. ViewModel이 컨테이너를 가지고(조합), 화면에는 읽기 전용 뷰만 연다(`StateFlow`/`MutableStateFlow`와 같은 방식).
 
 ```kotlin
-// <Name>UiState.kt
+// <Name>UiState.kt, <Name>Intent.kt, <Name>SideEffect.kt (파일당 최상위 타입 1개, 3장)
 data class <Name>UiState(...) : UiState
 sealed interface <Name>Intent : UiIntent { data object Refresh : <Name>Intent }
 sealed interface <Name>SideEffect : UiSideEffect { data class ShowError(val error: <Name>Error) : <Name>SideEffect }
@@ -235,7 +237,10 @@ interface SecureStore {
   - 색: `Palette`의 값, `LightColors`/`DarkColors`의 연결, `theme/MaterialOnlyColors.kt`의 `LightMaterialOnlyColors`/`DarkMaterialOnlyColors`(용도 토큰에 없는 Material 칸: `onPrimary`, `inversePrimary`, surface container 5단계).
   - 그 밖의 값: 각 `Default*`(`DefaultDimension`, `DefaultRadius`, `DefaultTypography`, `DefaultMotion`)와 `LightShadows`/`DarkShadows`.
   - 앱 리소스: 런처 아이콘 배경과 스플래시 색(`app/src/main/res/values*/colors.xml`)은 Compose 밖이라 토큰을 읽지 못한다. 주석에 적힌 토큰 값과 같게 맞춘다.
-- 화면 코드에 색이나 dp 값을 직접 쓰지 않고 토큰을 읽는다(관례, 아직 검사하지 않음).
+- 화면 코드에 색이나 dp 값을 직접 쓰지 않고 토큰을 읽는다. Konsist `DesignTokenRulesTest`가 `feature`와 `app`에서 다음을 막는다(주석과 문자열은 보지 않는다). dp 값은 아직 검사하지 않는다.
+  - `androidx.compose.material3.MaterialTheme` import(별칭 import 포함)
+  - import 없이 쓰는 `androidx.compose.material3.MaterialTheme`
+  - `Color(0x…)`, `Color(red = …)` 같은 색 직접 생성
 - 브랜드 폰트는 `res/font`에 넣고 `AppFontFamily`를 바꾼다.
 - `MaterialMapping`은 `ColorScheme`의 모든 칸과 글자 15칸, `Shapes`를 채운다. Material 기본값(보라)이 섞이지 않게 하기 위해서다. `primary`는 글자·아이콘 색으로도 쓰이므로 `fg.brand`에 연결하고, `*Fixed` 칸은 라이트 토큰으로 고정한다.
 - 테스트
