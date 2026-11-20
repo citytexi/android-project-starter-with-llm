@@ -2,7 +2,7 @@ package com.example.starter.core.designsystem.theme.color
 
 import org.junit.Test
 
-/** Text on solid backgrounds must meet WCAG AA (4.5:1). Run it again after changing the palette. */
+/** Text on solid backgrounds, idle and pressed, must meet WCAG AA (4.5:1). Run it again after changing the palette. */
 class ColorContrastTest {
     @Test
     fun lightOnSolidTextIsReadable() = assertReadable(LightColors)
@@ -26,5 +26,11 @@ class ColorContrastTest {
         assertContrast("onNeutralSolid", fg.onNeutralSolid, bg.neutralSolid)
         assertContrast("onPositiveSolid", fg.onPositiveSolid, bg.positiveSolid)
         assertContrast("onWarningSolid", fg.onWarningSolid, bg.warningSolid)
+        assertContrast("onBrandSolid pressed", fg.onBrandSolid, bg.brandSolidPressed)
+        assertContrast("onCriticalSolid pressed", fg.onCriticalSolid, bg.criticalSolidPressed)
+        assertContrast("onInformativeSolid pressed", fg.onInformativeSolid, bg.informativeSolidPressed)
+        assertContrast("onNeutralSolid pressed", fg.onNeutralSolid, bg.neutralSolidPressed)
+        assertContrast("onPositiveSolid pressed", fg.onPositiveSolid, bg.positiveSolidPressed)
+        assertContrast("onWarningSolid pressed", fg.onWarningSolid, bg.warningSolidPressed)
     }
 }

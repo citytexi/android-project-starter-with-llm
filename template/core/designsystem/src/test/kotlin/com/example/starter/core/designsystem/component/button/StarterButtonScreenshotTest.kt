@@ -1,9 +1,8 @@
-package com.example.starter.core.designsystem
+package com.example.starter.core.designsystem.component.button
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
-import com.example.starter.core.designsystem.component.StarterButton
 import com.example.starter.core.designsystem.theme.StarterTheme
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
@@ -19,16 +18,16 @@ class StarterButtonScreenshotTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun lightEnabled() = capture("starter_button_light_enabled", darkTheme = false, enabled = true)
+    fun lightEnabled() = capture("button_light_enabled", darkTheme = false, enabled = true)
 
     @Test
-    fun lightDisabled() = capture("starter_button_light_disabled", darkTheme = false, enabled = false)
+    fun lightDisabled() = capture("button_light_disabled", darkTheme = false, enabled = false)
 
     @Test
-    fun darkEnabled() = capture("starter_button_dark_enabled", darkTheme = true, enabled = true)
+    fun darkEnabled() = capture("button_dark_enabled", darkTheme = true, enabled = true)
 
     @Test
-    fun darkDisabled() = capture("starter_button_dark_disabled", darkTheme = true, enabled = false)
+    fun darkDisabled() = capture("button_dark_disabled", darkTheme = true, enabled = false)
 
     private fun capture(
         name: String,
