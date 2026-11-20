@@ -115,7 +115,7 @@ python3 scripts/verify.py <outputDir>
 
 - 생성된 프로젝트의 경로
 - 선택된 옵션: `navigation`(nav2/nav3)과 `ci`(생성된 workflow 목록, 없으면 없음), `classPrefix`(PRD에 적었거나 패키지명에서 만들어진 값)
-- 생성된 모듈 목록(`settings.gradle.kts`의 `include(...)` 기준: `app`, `core:*`, `data`, `domain`, `feature:sample`, `konsist`)
+- 생성된 모듈 목록(`settings.gradle.kts`의 `include(...)` 기준: `app`, `app-preview`, `core:*`, `data`, `domain`, `feature:sample`, `konsist`)
 - 다음에 할 일
   1. Android Studio에서 생성된 프로젝트를 엽니다.
   2. 생성된 프로젝트의 `AGENTS.md`를 읽습니다(이후 작업 지침).

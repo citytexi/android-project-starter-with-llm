@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Window theme behind Compose. Window background = light bg.layerDefault (Palette.white), so
+         launch has no flash. values-night overrides it for dark mode. -->
+    <style name="Theme.StarterPreview" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#FFFFFF</item>
+    </style>
+</resources>

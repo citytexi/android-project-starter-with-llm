@@ -71,6 +71,26 @@ class ModuleRulesTest {
     }
 
     @Test
+    fun `app preview may depend on ui cores and common`() {
+        listOf(":core:designsystem", ":core:ui", ":core:navigation", ":core:common").forEach { to ->
+            assertTrue(to, ModuleRules.isAllowed(":app-preview", to))
+        }
+    }
+
+    @Test
+    fun `app preview must not depend on feature, data, domain, storage or network`() {
+        listOf(
+            ":feature:sample",
+            ":data",
+            ":domain",
+            ":core:network",
+            ":core:database",
+            ":core:datastore",
+            ":core:testing:jvm",
+        ).forEach { to -> assertFalse(to, ModuleRules.isAllowed(":app-preview", to)) }
+    }
+
+    @Test
     fun `non ui cores may depend on other cores`() {
         assertTrue(ModuleRules.isAllowed(":core:datastore", ":core:common"))
         assertTrue(ModuleRules.isAllowed(":core:network", ":core:ui"))
