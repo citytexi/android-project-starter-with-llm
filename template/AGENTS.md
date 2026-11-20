@@ -72,6 +72,8 @@ Konsist가 강제하는 규칙이다. 어기면 `testStarter`가 실패한다.
 
 production 파일 하나에는 최상위 class, interface, object를 하나만 둔다(`FileStructureRulesTest`). 중첩 타입과 최상위 함수·프로퍼티는 세지 않는다. 파일 이름은 그 타입 이름으로 짓는다(`SampleError.kt`).
 
+지역 함수를 두지 않는다(`LocalFunctionRulesTest`). 함수 본문, 람다(Compose `Layout { }`, Gradle `subprojects { }` 블록 포함), `init`, 접근자 안에 이름 있는 `fun`을 선언하지 않고, 필요한 값을 파라미터로 받는 `private` 최상위 함수나 멤버 함수로 뺀다. 클래스 본문(지역 클래스, `object :` 식 포함)의 멤버, 익명 함수 `fun(x: Int) { }`, `.kts`의 최상위 함수는 괜찮다. 검사 범위는 production·테스트 소스와 `build-logic`의 모든 `.kt`, `.kts`다.
+
 관례(검사하지 않음): nav 파일 이름은 `StarterRoutes`/`StarterNavKeys`처럼 접두사를 쓰고, feature의 화면 composable은 `*Route`, `*Screen`으로 짓는다.
 
 ## 4. 화면 상태: MVI 컨테이너

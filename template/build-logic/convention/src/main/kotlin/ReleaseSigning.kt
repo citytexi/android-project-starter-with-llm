@@ -31,11 +31,8 @@ internal fun Project.configureReleaseSigning(extension: ApplicationExtension) {
         .orNull
         ?.let { localProperties.load(StringReader(it)) }
 
-    fun value(name: String): String? =
-        localProperties.getProperty(name)?.takeIf { it.isNotBlank() }
-            ?: providers.environmentVariable(name).orNull?.takeIf { it.isNotBlank() }
-
-    val values = listOf(KEYSTORE_PATH, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD).associateWith { value(it) }
+    val values =
+        listOf(KEYSTORE_PATH, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD).associateWith { signingValue(localProperties, it) }
     val missing = values.filterValues { it == null }.keys
 
     val release = extension.buildTypes.getByName("release")
@@ -65,3 +62,11 @@ internal fun Project.configureReleaseSigning(extension: ApplicationExtension) {
             )
     }
 }
+
+/** [name] from local.properties, else from the environment; blank counts as unset. */
+private fun Project.signingValue(
+    localProperties: Properties,
+    name: String,
+): String? =
+    localProperties.getProperty(name)?.takeIf { it.isNotBlank() }
+        ?: providers.environmentVariable(name).orNull?.takeIf { it.isNotBlank() }
