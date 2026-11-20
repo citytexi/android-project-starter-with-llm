@@ -8,11 +8,12 @@ LLM 도구(Claude Code, Cursor, Codex)와 팀원이 이 프로젝트에서 지�
 - 런처 아이콘은 `app/src/main/res`의 자리표시자다. 배포 전에 교체한다.
 - Gradle configuration cache가 켜져 있다(`gradle.properties`). 빌드 스크립트에서 설정 시점에 파일이나 환경변수를 읽으면 캐시 오류가 날 수 있다.
 
-## 1. 모듈 구성 (14개)
+## 1. 모듈 구성 (15개)
 
 | 모듈 | 종류 | 역할 |
 |---|---|---|
 | `:app` | Android | `MainActivity`, Hilt Application, 앱 전체 nav 조립(`StarterNavHost`) |
+| `:app-preview` | Android | 디자인 시스템 카탈로그 앱(debug 전용, 13장). release variant 없음 |
 | `:feature:sample` | Android | 예시 화면. Route, Screen, ViewModel, UiState/Intent/SideEffect. 새 feature의 복사 원본 |
 | `:domain` | JVM | 모델, `*Repository` 인터페이스, `*UseCase`. Android 의존 금지 |
 | `:data` | Android | `*RepositoryImpl`, Hilt 바인딩(`DataModule`) |
@@ -41,6 +42,7 @@ Gradle `build-logic`의 `ModuleRules`가 모든 모듈의 프로젝트 의존을
 | `core:designsystem`, `core:ui`, `core:navigation` | 이 셋과 `core:common`만(UI core는 `network`, `database`, `datastore`에 의존하지 못함). 단 `core:ui`는 `core:designsystem`에 의존하지 못함 |
 | 그 밖의 `core:*` | 다른 `core:*`만. `core:testing:*`은 test/androidTest 구성에서만 쓰고, 자신은 아무 `core:*`에나 의존할 수 있음 |
 | `app` | 전부 |
+| `app-preview` | `core:designsystem`, `core:ui`, `core:navigation`, `core:common` |
 | `konsist` | 없음 |
 
 `feature:*` → `core:common`은 설계 문서의 목록에는 없지만 허용한다. `domain`이 `core:common`을 `api`로 노출하고, ViewModel이 dispatcher qualifier를 주입받을 수 있어야 하기 때문이다.
@@ -271,3 +273,12 @@ interface SecureStore {
   - `PressableTest`: 축소 배율, 비활성·로딩·애니메이션 삭제 중 축소 없음, 비활성 클릭 무시, 취소 뒤 복귀, `interactionSource` 교체, 재사용·재부착 뒤 상태, 가장자리 탭 유지, 배경만 바뀜.
   - `StarterPressableSurfaceTest`: 내용 축소, 토글·단일 선택 역할, 테두리, 눌린 테두리, 포커스 테두리, 로딩 상태 설명, `onClickLabel`.
   - `StarterButtonTest`: 클릭, 비활성, 눌림 색, 48dp 높이.
+
+## 13. 프리뷰 카탈로그 앱 (`:app-preview`)
+
+디자인 시스템을 기기에서 보는 debug 전용 앱이다. `./gradlew :app-preview:installDebug`로 설치한다. release variant는 꺼져 있어 출시되지 않는다.
+
+- 화면 아래 컨트롤 바에서 테마(라이트·다크·시스템)와 글자 크기(1×·1.3×·2×)를 고른다. 모든 화면에 함께 적용된다.
+- 화면을 추가할 때는 `catalog/PreviewCatalog.kt`의 `previewCatalog`에 `PreviewCatalogItem(분류, 제목) { onBack -> 화면 }` 한 줄을 넣는다. 제목으로 화면을 찾으므로 제목은 겹치면 안 된다(`PreviewCatalogTest`).
+- 화면 전환은 `navigation/PreviewNavHost.kt` 하나에만 있고 nav 변형마다 다르다(nav2 `NavHost`, nav3 `NavDisplay`). 화면을 추가해도 이 파일은 고치지 않는다.
+- `PreviewAppTest`: 테마와 글자 크기가 홈과 열린 화면에 적용되는지, 화면 열기와 돌아가기, 뒤로 연타 시 앱이 닫히지 않는지, 홈에서 뒤로 가면 앱이 닫히는지 확인한다. 두 nav 변형에서 같은 테스트가 돈다.

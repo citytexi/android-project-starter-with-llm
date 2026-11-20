@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Launcher icon background: gray, so this debug tool is not mistaken for the app (brand color). Keep it equal to core:designsystem Palette.gray600. -->
+    <color name="ic_launcher_background">#52525B</color>
+</resources>

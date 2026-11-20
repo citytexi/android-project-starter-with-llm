@@ -8,6 +8,8 @@
  * - `:feature:*` may depend on `:domain`, `:core:designsystem`, `:core:ui`, `:core:navigation`, `:core:common`.
  *   `:core:common` goes beyond the design spec's list on purpose: `:domain` already exposes it as
  *   `api`, and it holds the dispatcher qualifiers a ViewModel may inject.
+ * - `:app-preview` (debug-only design-system preview app) may depend on the UI cores and
+ *   `:core:common`, nothing else.
  * - `:domain` may depend on `:core:common`.
  * - `:data` may depend on `:domain`, `:core:network`, `:core:database`, `:core:datastore`, `:core:common`.
  * - `:core:designsystem`, `:core:ui`, `:core:navigation` (UI cores) may depend only on each other
@@ -43,6 +45,7 @@ object ModuleRules {
         from == to -> true
         from == ":app" -> true
         from.isUnder(":feature") -> to in FEATURE_ALLOWED
+        from == ":app-preview" -> to in UI_CORE_ALLOWED
         from == ":domain" -> to in DOMAIN_ALLOWED
         from == ":data" -> to in DATA_ALLOWED
         from.isUnder(":core:testing") -> to.isUnder(":core")
