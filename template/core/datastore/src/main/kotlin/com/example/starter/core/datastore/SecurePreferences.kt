@@ -6,8 +6,3 @@ import javax.inject.Qualifier
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class SecurePreferences
-
-/** The plain `settings` DataStore behind [SettingsDataSource]. */
-@Qualifier
-@Retention(AnnotationRetention.BINARY)
-annotation class SettingsPreferences
