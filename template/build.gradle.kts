@@ -43,22 +43,23 @@ subprojects {
     if (!buildFile.exists()) return@subprojects
     apply(plugin = "starter.quality")
 
-    // Matched by name when the task graph is built, so a module that lacks a task
-    // (no androidTest sources, no screenshot plugin) is simply skipped.
     val module = this
-
-    fun matching(
-        android: Set<String>,
-        jvm: Set<String>,
-        any: Set<String>,
-    ) = module.tasks.matching { task ->
-        val isAndroid = module.pluginManager.hasPlugin("com.android.base")
-        task.name in any || task.name in (if (isAndroid) android else jvm)
-    }
     testStarter.configure {
-        dependsOn(matching(android = androidTestTasks, jvm = jvmTestTasks, any = qualityTasks))
+        dependsOn(matchingTasks(module, android = androidTestTasks, jvm = jvmTestTasks, any = qualityTasks))
     }
     verifyStarter.configure {
-        dependsOn(matching(android = androidBuildTasks, jvm = emptySet(), any = emptySet()))
+        dependsOn(matchingTasks(module, android = androidBuildTasks, jvm = emptySet(), any = emptySet()))
     }
+}
+
+// Matched by name when the task graph is built, so a module that lacks a task
+// (no androidTest sources, no screenshot plugin) is simply skipped.
+private fun matchingTasks(
+    module: Project,
+    android: Set<String>,
+    jvm: Set<String>,
+    any: Set<String>,
+) = module.tasks.matching { task ->
+    val isAndroid = module.pluginManager.hasPlugin("com.android.base")
+    task.name in any || task.name in (if (isAndroid) android else jvm)
 }
